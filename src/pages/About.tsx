@@ -1,35 +1,37 @@
 import { motion } from "framer-motion";
-import { Download, MapPin, Mail, Linkedin, Briefcase, GraduationCap } from "lucide-react";
+import { Download, MapPin, Mail, Linkedin, Briefcase, GraduationCap, Globe, Bot, BarChart3, Code } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const experience = [
   {
+    company: "MarketplaceGrowth.nl",
+    role: "Founder & Lead Engineer",
+    period: "2025 – Present",
+    highlights: [
+      "Building a multi-marketplace SaaS: AI content generation, per-SKU profitability, and marketplace intelligence",
+      "Full-stack: React + Vite + Tailwind on Vercel, Supabase (PostgreSQL, Edge Functions, Vault), n8n automation",
+      "26 automated news sources, 13 category compliance rules, FIFO cost tracking, 15+ Amazon fee categories",
+      "Designed and deployed HansAI v2.0 — a 5-agent AI system with OpenClaw, n8n reasoning, and Supabase as source of truth",
+    ],
+  },
+  {
+    company: "Freelance Marketplace Consultant",
+    role: "E-commerce Strategy & Automation",
+    period: "2024 – Present",
+    highlights: [
+      "Connect Car Parts: 2,400+ automotive SKUs optimized across Amazon DE, NL, FR — 93% time savings",
+      "Built AutoSEO Brain: automated content optimization pipeline for marketplace listings",
+      "Consulting for brands expanding from single-marketplace to pan-EU presence",
+    ],
+  },
+  {
     company: "Alpine Hearing Protection",
     role: "E-commerce Manager",
-    period: "2022 – Present",
+    period: "2022 – 2024",
     highlights: [
       "Achieved 70% market share on Amazon NL & BE",
-      "Expanded to 8 Amazon EU marketplaces",
-      "Managed Amazon, Bol.com, and full webshop operations",
-    ],
-  },
-  {
-    company: "Webhelp / GGD",
-    role: "Team Lead & Corona Communications",
-    period: "2020 – 2022",
-    highlights: [
-      "Led a team managing public health communications",
-      "Coordinated high-volume contact center operations",
-    ],
-  },
-  {
-    company: "IGM Badkamerwinkel",
-    role: "Online Marketeer",
-    period: "2018 – 2020",
-    highlights: [
-      "+40% organic traffic through SEO strategy",
-      "+35% SEO visibility improvement",
-      "Managed PPC campaigns and marketplace listings",
+      "Expanded to 8 Amazon EU marketplaces (DE, FR, ES, IT, NL, BE, PL, SE)",
+      "Managed Amazon, Bol.com, full webshop operations, and PPC campaigns",
     ],
   },
   {
@@ -37,23 +39,36 @@ const experience = [
     role: "Interaction Designer",
     period: "2016 – 2018",
     highlights: [
-      "Designed UX for e-commerce platform serving millions",
-      "Created wireframes, prototypes, and user flows",
+      "UX design for e-commerce platform serving millions of Dutch DIY consumers",
+      "Wireframes, prototypes, user flows, and A/B testing",
     ],
   },
 ];
 
 const skills = [
-  "Amazon & Bol Marketplaces",
-  "SEO / PPC / SEM",
-  "E-commerce Strategy",
-  "Project Management",
-  "Google Analytics",
+  "Amazon SP-API",
+  "Bol.com Retailer API",
+  "Marketplace Strategy",
+  "AI / LLM Integration",
+  "React / TypeScript",
+  "Supabase / PostgreSQL",
+  "n8n Automation",
+  "Per-SKU Profitability",
+  "SEO & Content Strategy",
+  "PPC / ACoS Optimization",
   "UX / Interaction Design",
-  "A/B Testing & CRO",
-  "Team Leadership",
-  "Content Strategy",
-  "Data Analysis",
+  "EU Compliance (EPR, PPWR)",
+  "Multi-Marketplace Expansion",
+  "Data Analysis & BI",
+];
+
+const techStack = [
+  { label: "Frontend", items: "React, Vite, TypeScript, Tailwind CSS, shadcn/ui, Framer Motion" },
+  { label: "Backend", items: "Supabase (PostgreSQL, Edge Functions, Vault, pg_cron, RLS)" },
+  { label: "AI/ML", items: "Anthropic Claude API, OpenClaw gateway, custom prompt engineering" },
+  { label: "Automation", items: "n8n (self-hosted), 30+ workflows, RSS ingestion, Reddit monitoring" },
+  { label: "Deploy", items: "Vercel, GitHub Actions CI/CD, Docker (Traefik, Ollama)" },
+  { label: "Infra", items: "2 VPS (Hostinger), Tailscale mesh, Pi 5 for Home Assistant" },
 ];
 
 const education = [
@@ -61,11 +76,6 @@ const education = [
     institution: "HU University of Applied Sciences Utrecht",
     degree: "B.A.Sc. Communication & Media Design",
     period: "2012 – 2016",
-  },
-  {
-    institution: "ROC Hilversum",
-    degree: "MBO – ICT Manager",
-    period: "2007 – 2011",
   },
 ];
 
@@ -95,19 +105,22 @@ const About = () => (
           </h1>
           <div className="space-y-4 text-base leading-relaxed text-muted-foreground">
             <p>
-              Dynamic E-commerce Manager with 6+ years of experience in driving online sales,
-              managing marketplace strategies, and optimizing digital channels. Specializing in
-              Amazon, Bol.com, and full-stack e-commerce operations.
+              Marketplace strategist, SaaS founder, and AI systems architect based in Amersfoort.
+              I build tools that help EU marketplace sellers scale profitably across Amazon,
+              Bol.com, and emerging platforms like Kaufland.
             </p>
             <p>
-              I combine a strong background in interaction design with hands-on commercial
-              expertise to create data-driven strategies that deliver measurable results.
-              From achieving 70% market share on Amazon NL to boosting organic traffic by 40%,
-              I'm passionate about turning complexity into growth.
+              Currently building{" "}
+              <a href="https://marketplacegrowth.nl" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2 decoration-primary/40 hover:decoration-primary">
+                MarketplaceGrowth.nl
+              </a>
+              {" "}— a SaaS platform combining AI-powered content generation, per-SKU profitability
+              tracking with 15+ fee categories, and automated marketplace intelligence from 26 authority sources.
+              Previously achieved 70% market share on Amazon NL for Alpine Hearing Protection
+              and optimized 2,400+ automotive SKUs across 3 EU markets.
             </p>
           </div>
 
-          {/* Contact details */}
           <div className="mt-8 flex flex-wrap gap-4 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <MapPin size={14} className="text-primary" /> Amersfoort, NL
@@ -118,9 +131,11 @@ const About = () => (
             <a href="https://linkedin.com/in/hansvl3" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground">
               <Linkedin size={14} className="text-primary" /> LinkedIn
             </a>
+            <a href="https://marketplacegrowth.nl" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground">
+              <Globe size={14} className="text-primary" /> MarketplaceGrowth.nl
+            </a>
           </div>
 
-          {/* Download CV */}
           <div className="mt-8 flex flex-wrap gap-3">
             <a
               href="/Hans_CV_-_e-commerce_manager.pdf"
@@ -160,6 +175,28 @@ const About = () => (
         </div>
       </motion.div>
 
+      {/* Tech Stack */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+        className="mb-16"
+      >
+        <h2 className="mb-6 font-display text-2xl font-medium text-foreground">
+          <Code size={20} className="mr-2 inline-block text-primary" />
+          Tech Stack
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {techStack.map((t) => (
+            <div key={t.label} className="rounded-lg border border-border p-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-primary mb-1">{t.label}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t.items}</p>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
       {/* Experience */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -173,12 +210,11 @@ const About = () => (
           Experience
         </h2>
         <div className="space-y-0">
-          {experience.map((job, i) => (
+          {experience.map((job) => (
             <div
               key={job.company}
               className="relative border-l-2 border-border py-6 pl-8 first:pt-0 last:pb-0"
             >
-              {/* Timeline dot */}
               <div className="absolute -left-[7px] top-6 first:top-0 h-3 w-3 rounded-full border-2 border-primary bg-background" />
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div>

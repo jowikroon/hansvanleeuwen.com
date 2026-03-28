@@ -1,14 +1,19 @@
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
-import { ExternalLink, LogOut, Wrench, Workflow, Globe, Plus } from "lucide-react";
+import {
+  ExternalLink, LogOut, BarChart3, Workflow, Globe, Newspaper,
+  Database, Shield, Bot, Sparkles, Activity, Server,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface ToolCard {
   id: string;
   name: string;
   description: string;
-  icon: typeof Wrench;
-  action: () => void;
+  icon: typeof BarChart3;
+  url: string;
   color: string;
+  badge?: string;
 }
 
 const Portal = () => {
@@ -33,7 +38,7 @@ const Portal = () => {
         >
           <h1 className="mb-4 font-display text-4xl font-medium text-foreground">Portal</h1>
           <p className="mb-8 max-w-md text-muted-foreground">
-            Sign in to access your SEO tools, workflow triggers, and more.
+            Sign in to access your tools, dashboards, and automation workflows.
           </p>
           <button
             onClick={signInWithGoogle}
@@ -54,32 +59,65 @@ const Portal = () => {
 
   const tools: ToolCard[] = [
     {
-      id: "keyword-research",
-      name: "Keyword Research",
-      description: "Analyze search volume, competition, and keyword opportunities.",
+      id: "mg-dashboard",
+      name: "MarketplaceGrowth Dashboard",
+      description: "Profitability tracking, content builder, and marketplace intelligence.",
+      icon: BarChart3,
+      url: "https://marketplacegrowth.nl/app",
+      color: "text-green-500",
+      badge: "Live",
+    },
+    {
+      id: "n8n",
+      name: "n8n Workflows",
+      description: "30+ automation workflows — news ingestion, sync, AI pipelines.",
+      icon: Workflow,
+      url: "https://n8n.srv1402218.hstgr.cloud",
+      color: "text-orange-500",
+      badge: "Self-hosted",
+    },
+    {
+      id: "supabase",
+      name: "Supabase Dashboard",
+      description: "PostgreSQL, Edge Functions, Vault, RLS policies, pg_cron jobs.",
+      icon: Database,
+      url: "https://supabase.com/dashboard/project/pesfakewujjwkyybwaom",
+      color: "text-emerald-500",
+    },
+    {
+      id: "vercel",
+      name: "Vercel Deployments",
+      description: "CI/CD pipeline for marketplacegrowth.nl and hansvanleeuwen.com.",
       icon: Globe,
-      action: () => window.open("https://www.google.com/search?q=keyword+research+tool", "_blank"),
+      url: "https://vercel.com/hansvl3-4255s-projects",
+      color: "text-foreground",
+    },
+    {
+      id: "mg-news",
+      name: "News Feed",
+      description: "26 sources, 6 regions, AI-categorized marketplace intelligence.",
+      icon: Newspaper,
+      url: "https://marketplacegrowth.nl/app",
       color: "text-blue-500",
     },
     {
-      id: "n8n-workflow",
-      name: "N8N Workflows",
-      description: "Trigger and manage your automation workflows.",
-      icon: Workflow,
-      action: () => {
-        // Placeholder: trigger n8n webhook
-        console.log("Triggering n8n workflow...");
-      },
-      color: "text-orange-500",
+      id: "mg-admin",
+      name: "User Directory",
+      description: "Manage users, onboarding toggles, and workspace roles.",
+      icon: Shield,
+      url: "https://marketplacegrowth.nl/app/admin/users",
+      color: "text-yellow-500",
+      badge: "Admin",
     },
-    {
-      id: "site-audit",
-      name: "Site Audit",
-      description: "Run a quick SEO audit on any website.",
-      icon: Wrench,
-      action: () => console.log("Site audit tool"),
-      color: "text-green-500",
-    },
+  ];
+
+  const systemStatus = [
+    { name: "MarketplaceGrowth", status: "live", url: "marketplacegrowth.nl" },
+    { name: "n8n Automation", status: "live", url: "n8n.srv1402218.hstgr.cloud" },
+    { name: "Supabase (eu-central-1)", status: "live", url: "pesfakewujjwkyybwaom" },
+    { name: "OpenClaw Gateway", status: "live", url: "VPS2 (Tailscale)" },
+    { name: "News Pipeline (30min)", status: "active", url: "26 RSS sources" },
+    { name: "Profit Snapshots (daily)", status: "active", url: "pg_cron 05:30" },
   ];
 
   return (
@@ -94,9 +132,9 @@ const Portal = () => {
           <div>
             <p className="mb-2 text-sm font-medium uppercase tracking-[0.2em] text-primary">Portal</p>
             <h1 className="mb-2 font-display text-4xl font-medium tracking-tight text-foreground">
-              Welcome back{user.user_metadata?.full_name ? `, ${user.user_metadata.full_name.split(" ")[0]}` : ""}
+              Command Center
             </h1>
-            <p className="text-muted-foreground">Your tools and workflows, all in one place.</p>
+            <p className="text-muted-foreground">Tools, dashboards, and system status.</p>
           </div>
           <button
             onClick={signOut}
@@ -107,37 +145,64 @@ const Portal = () => {
         </div>
 
         {/* Tools Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-12">
           {tools.map((tool, i) => (
-            <motion.button
+            <motion.a
               key={tool.id}
+              href={tool.url}
+              target="_blank"
+              rel="noopener noreferrer"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: i * 0.1 }}
-              onClick={tool.action}
+              transition={{ duration: 0.4, delay: i * 0.08 }}
               className="group rounded-lg border border-border p-6 text-left transition-all duration-300 hover:border-primary/30 hover:shadow-md"
             >
-              <tool.icon size={24} className={`mb-4 ${tool.color}`} />
+              <div className="flex items-start justify-between mb-4">
+                <tool.icon size={24} className={tool.color} />
+                {tool.badge && (
+                  <Badge variant="secondary" className="text-[10px]">{tool.badge}</Badge>
+                )}
+              </div>
               <h3 className="mb-1 font-display text-lg font-medium text-foreground">
                 {tool.name}
                 <ExternalLink size={12} className="ml-2 inline-block opacity-0 transition-opacity group-hover:opacity-100" />
               </h3>
               <p className="text-sm text-muted-foreground">{tool.description}</p>
-            </motion.button>
+            </motion.a>
           ))}
+        </div>
 
-          {/* Add Tool Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: tools.length * 0.1 }}
-            className="flex items-center justify-center rounded-lg border border-dashed border-border p-6 text-muted-foreground/50"
-          >
-            <div className="text-center">
-              <Plus size={24} className="mx-auto mb-2" />
-              <p className="text-sm">Add more tools</p>
-            </div>
-          </motion.div>
+        {/* System Status */}
+        <div>
+          <h2 className="mb-4 font-display text-xl font-medium text-foreground flex items-center gap-2">
+            <Activity size={18} className="text-primary" />
+            System Status
+          </h2>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Service</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Endpoint</th>
+                </tr>
+              </thead>
+              <tbody>
+                {systemStatus.map((s) => (
+                  <tr key={s.name} className="border-b last:border-0">
+                    <td className="px-4 py-2.5 font-medium text-xs">{s.name}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`inline-flex items-center gap-1.5 text-xs ${s.status === "live" ? "text-green-500" : "text-blue-500"}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${s.status === "live" ? "bg-green-500" : "bg-blue-500"}`} />
+                        {s.status === "live" ? "Live" : "Active"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">{s.url}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </motion.div>
     </section>
