@@ -71,6 +71,8 @@ export const blogPosts: BlogPost[] = [
     date: "2026-03-25",
     readTime: "12 min read",
     slug: "building-profitability-engine",
+    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=500&fit=crop",
+    featured: true,
   },
   {
     id: "2",
@@ -81,6 +83,7 @@ export const blogPosts: BlogPost[] = [
     date: "2026-03-20",
     readTime: "8 min read",
     slug: "fogg-model-onboarding",
+    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=500&fit=crop",
   },
   {
     id: "3",
@@ -91,6 +94,7 @@ export const blogPosts: BlogPost[] = [
     date: "2026-03-15",
     readTime: "10 min read",
     slug: "automating-marketplace-intelligence",
+    image: "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=800&h=500&fit=crop",
   },
   {
     id: "4",
@@ -101,6 +105,8 @@ export const blogPosts: BlogPost[] = [
     date: "2026-03-01",
     readTime: "15 min read",
     slug: "hansai-architecture",
+    image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=500&fit=crop",
+    featured: true,
   },
   {
     id: "5",
@@ -111,6 +117,7 @@ export const blogPosts: BlogPost[] = [
     date: "2026-02-15",
     readTime: "9 min read",
     slug: "scaling-connect-car-parts",
+    image: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&h=500&fit=crop",
   },
   {
     id: "6",
@@ -121,6 +128,7 @@ export const blogPosts: BlogPost[] = [
     date: "2026-02-01",
     readTime: "11 min read",
     slug: "krug-saas-dashboards",
+    image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=500&fit=crop",
   },
   {
     id: "7",
@@ -131,6 +139,7 @@ export const blogPosts: BlogPost[] = [
     date: "2025-10-15",
     readTime: "9 min read",
     slug: "ux-unit-economics",
+    image: "https://images.unsplash.com/photo-1553729459-efe14ef6055d?w=800&h=500&fit=crop",
   },
   {
     id: "8",
@@ -141,5 +150,6 @@ export const blogPosts: BlogPost[] = [
     date: "2025-12-01",
     readTime: "10 min read",
     slug: "eu-compliance-2026",
+    image: "https://images.unsplash.com/photo-1467803738586-46b7eb7b16a1?w=800&h=500&fit=crop",
   },
 ];
