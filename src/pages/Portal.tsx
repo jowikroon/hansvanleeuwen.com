@@ -1,8 +1,10 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
   ExternalLink, LogOut, BarChart3, Workflow, Globe, Newspaper,
-  Database, Shield, Bot, Sparkles, Activity, Server,
+  Database, Shield, Bot, Sparkles, Activity, Server, DollarSign,
+  PenLine, Image, FileText, Clock, Plug, Users, Home, Cpu, Radio,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -14,6 +16,7 @@ interface ToolCard {
   url: string;
   color: string;
   badge?: string;
+  internal?: boolean;
 }
 
 const Portal = () => {
@@ -57,20 +60,39 @@ const Portal = () => {
     );
   }
 
+  // ── Tools ──
   const tools: ToolCard[] = [
     {
-      id: "mg-dashboard",
-      name: "MarketplaceGrowth Dashboard",
-      description: "Profitability tracking, content builder, and marketplace intelligence.",
-      icon: BarChart3,
+      id: "mg-profitability",
+      name: "Profitability Dashboard",
+      description: "Per-SKU margins with FIFO COGS, 15+ fee categories, TACoS tracking, and loss-making SKU alerts.",
+      icon: DollarSign,
       url: "https://marketplacegrowth.nl/app",
       color: "text-green-500",
       badge: "Live",
     },
     {
+      id: "mg-content",
+      name: "AI Content Builder",
+      description: "5-step wizard: Import → Configure → Generate → Review (inline edit) → Export. Compliance engine for 5 categories.",
+      icon: Sparkles,
+      url: "https://marketplacegrowth.nl/app",
+      color: "text-violet-500",
+      badge: "Live",
+    },
+    {
+      id: "blog-cms",
+      name: "Blog CMS",
+      description: "Article management with 3 voice templates (Professional, Technical, Personal). Markdown editor, revision tracking.",
+      icon: PenLine,
+      url: "/portal/blog",
+      color: "text-primary",
+      internal: true,
+    },
+    {
       id: "n8n",
       name: "n8n Workflows",
-      description: "30+ automation workflows — news ingestion, sync, AI pipelines.",
+      description: "34+ workflows — news ingestion (26 sources), Reddit discovery, marketplace sync, Dagstart, agent router.",
       icon: Workflow,
       url: "https://n8n.srv1402218.hstgr.cloud",
       color: "text-orange-500",
@@ -79,7 +101,7 @@ const Portal = () => {
     {
       id: "supabase",
       name: "Supabase Dashboard",
-      description: "PostgreSQL, Edge Functions, Vault, RLS policies, pg_cron jobs.",
+      description: "70+ tables, Vault-encrypted credentials, 13 edge functions, pg_cron (3 jobs), RLS on all tables.",
       icon: Database,
       url: "https://supabase.com/dashboard/project/pesfakewujjwkyybwaom",
       color: "text-emerald-500",
@@ -87,37 +109,71 @@ const Portal = () => {
     {
       id: "vercel",
       name: "Vercel Deployments",
-      description: "CI/CD pipeline for marketplacegrowth.nl and hansvanleeuwen.com.",
+      description: "Auto-deploy from GitHub for marketplacegrowth.nl and hansvanleeuwen.com.",
       icon: Globe,
       url: "https://vercel.com/hansvl3-4255s-projects",
       color: "text-foreground",
     },
     {
       id: "mg-news",
-      name: "News Feed",
-      description: "26 sources, 6 regions, AI-categorized marketplace intelligence.",
+      name: "News Intelligence",
+      description: "26 authority sources across US/DE/UK/NL/EU. AI categorization via Claude Haiku. Reddit self-learning.",
       icon: Newspaper,
       url: "https://marketplacegrowth.nl/app",
       color: "text-blue-500",
+      badge: "30min cron",
     },
     {
       id: "mg-admin",
       name: "User Directory",
-      description: "Manage users, onboarding toggles, and workspace roles.",
+      description: "User management, onboarding toggles, role assignment, platform admin controls.",
       icon: Shield,
       url: "https://marketplacegrowth.nl/app/admin/users",
       color: "text-yellow-500",
       badge: "Admin",
     },
+    {
+      id: "samantha",
+      name: "Samantha AI",
+      description: "5-agent system: Samantha, Marktpuls, InfraWacht, Dagstart, VerkoopPiloot. Voice via ElevenLabs (Daniel).",
+      icon: Bot,
+      url: "https://t.me/Samanthahansbot",
+      color: "text-pink-500",
+      badge: "Telegram",
+    },
   ];
 
-  const systemStatus = [
-    { name: "MarketplaceGrowth", status: "live", url: "marketplacegrowth.nl" },
-    { name: "n8n Automation", status: "live", url: "n8n.srv1402218.hstgr.cloud" },
-    { name: "Supabase (eu-central-1)", status: "live", url: "pesfakewujjwkyybwaom" },
-    { name: "OpenClaw Gateway", status: "live", url: "VPS2 (Tailscale)" },
-    { name: "News Pipeline (30min)", status: "active", url: "26 RSS sources" },
-    { name: "Profit Snapshots (daily)", status: "active", url: "pg_cron 05:30" },
+  // ── Infrastructure status ──
+  const infrastructure = [
+    { name: "VPS 2 — OpenClaw + Ollama", role: "Agent gateway, TTS, LLM inference", specs: "KVM 4: 16GB RAM, 4 vCPU, 200GB NVMe", status: "live", icon: Server },
+    { name: "VPS 1 — n8n + Supabase", role: "Workflow engine, database, Qdrant vector DB", specs: "srv1402218.hstgr.cloud", status: "live", icon: Cpu },
+    { name: "Pi 5 — Home Assistant", role: "Smart home (93 entities), MCP connected via Tailscale", specs: "100.86.198.76", status: "live", icon: Home },
+  ];
+
+  // ── System services ──
+  const services = [
+    { name: "MarketplaceGrowth.nl", status: "live", detail: "Vercel · React + Supabase" },
+    { name: "HansVanLeeuwen.com", status: "live", detail: "Vercel · React + Supabase" },
+    { name: "n8n Automation", status: "live", detail: "34 workflows · Self-hosted" },
+    { name: "Supabase Cloud", status: "live", detail: "eu-central-1 · 70+ tables" },
+    { name: "OpenClaw Gateway", status: "live", detail: "5 agents · Telegram + WhatsApp" },
+    { name: "News Pipeline", status: "active", detail: "30-min cron · 26 RSS sources" },
+    { name: "Reddit Discovery", status: "active", detail: "6-hour cron · 6 subreddits" },
+    { name: "Profit Snapshots", status: "active", detail: "Daily 05:30 · pg_cron" },
+    { name: "Sales Sync", status: "active", detail: "Every 4h · Amazon SP-API + Bol.com" },
+    { name: "Settlements", status: "active", detail: "1st + 15th monthly" },
+    { name: "InfraWacht Health", status: "active", detail: "Every 6h · VPS monitoring" },
+    { name: "Dagstart Brief", status: "active", detail: "Daily 07:30 · Morning summary" },
+    { name: "Marktpuls Brief", status: "active", detail: "Mon-Fri 09:00 · Marketplace news" },
+  ];
+
+  // ── Agents ──
+  const agents = [
+    { name: "Samantha", model: "Claude Sonnet 4.6", channel: "@Samanthahansbot", role: "Personal assistant, cross-agent delegation" },
+    { name: "Marktpuls", model: "Claude Haiku 4.5", channel: "@marketplacegrowthbot", role: "E-commerce intelligence" },
+    { name: "InfraWacht", model: "Claude Haiku 4.5", channel: "@InfraWachtBot", role: "Infrastructure monitoring + CRITICAL alerts" },
+    { name: "Dagstart", model: "Claude Haiku 4.5", channel: "@DagstartBot", role: "Morning briefing with open tasks" },
+    { name: "VerkoopPiloot", model: "Claude Sonnet 4.6", channel: "@VerkoopPilootBot", role: "Listing generation with human-in-the-loop" },
   ];
 
   return (
@@ -134,7 +190,7 @@ const Portal = () => {
             <h1 className="mb-2 font-display text-4xl font-medium tracking-tight text-foreground">
               Command Center
             </h1>
-            <p className="text-muted-foreground">Tools, dashboards, and system status.</p>
+            <p className="text-muted-foreground">Tools, dashboards, agents, and infrastructure overview.</p>
           </div>
           <button
             onClick={signOut}
@@ -146,37 +202,97 @@ const Portal = () => {
 
         {/* Tools Grid */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-12">
-          {tools.map((tool, i) => (
-            <motion.a
-              key={tool.id}
-              href={tool.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: i * 0.08 }}
-              className="group rounded-lg border border-border p-6 text-left transition-all duration-300 hover:border-primary/30 hover:shadow-md"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <tool.icon size={24} className={tool.color} />
-                {tool.badge && (
-                  <Badge variant="secondary" className="text-[10px]">{tool.badge}</Badge>
-                )}
+          {tools.map((tool, i) => {
+            const Wrapper = tool.internal ? Link : "a";
+            const props = tool.internal
+              ? { to: tool.url }
+              : { href: tool.url, target: "_blank", rel: "noopener noreferrer" };
+            return (
+              <motion.div
+                key={tool.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: i * 0.06 }}
+              >
+                <Wrapper
+                  {...(props as any)}
+                  className="group block rounded-lg border border-border p-6 text-left transition-all duration-300 hover:border-primary/30 hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <tool.icon size={24} className={tool.color} />
+                    {tool.badge && (
+                      <Badge variant="secondary" className="text-[10px]">{tool.badge}</Badge>
+                    )}
+                  </div>
+                  <h3 className="mb-1 font-display text-lg font-medium text-foreground">
+                    {tool.name}
+                    {!tool.internal && <ExternalLink size={12} className="ml-2 inline-block opacity-0 transition-opacity group-hover:opacity-100" />}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{tool.description}</p>
+                </Wrapper>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Infrastructure */}
+        <div className="mb-12">
+          <h2 className="mb-4 font-display text-xl font-medium text-foreground flex items-center gap-2">
+            <Server size={18} className="text-primary" />
+            Infrastructure
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {infrastructure.map((inf) => (
+              <div key={inf.name} className="rounded-lg border border-border p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <inf.icon size={16} className="text-primary" />
+                  <span className="text-sm font-medium">{inf.name}</span>
+                  <span className="ml-auto inline-flex items-center gap-1 text-xs text-green-500">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Live
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-1">{inf.role}</p>
+                <p className="text-[10px] text-muted-foreground/70 font-mono">{inf.specs}</p>
               </div>
-              <h3 className="mb-1 font-display text-lg font-medium text-foreground">
-                {tool.name}
-                <ExternalLink size={12} className="ml-2 inline-block opacity-0 transition-opacity group-hover:opacity-100" />
-              </h3>
-              <p className="text-sm text-muted-foreground">{tool.description}</p>
-            </motion.a>
-          ))}
+            ))}
+          </div>
+        </div>
+
+        {/* AI Agents */}
+        <div className="mb-12">
+          <h2 className="mb-4 font-display text-xl font-medium text-foreground flex items-center gap-2">
+            <Bot size={18} className="text-primary" />
+            Samantha AI — 5-Agent System
+          </h2>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Agent</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Model</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Channel</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                {agents.map((a) => (
+                  <tr key={a.name} className="border-b last:border-0">
+                    <td className="px-4 py-2.5 font-medium text-xs">{a.name}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">{a.model}</td>
+                    <td className="px-4 py-2.5 text-xs text-primary font-mono">{a.channel}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{a.role}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* System Status */}
         <div>
           <h2 className="mb-4 font-display text-xl font-medium text-foreground flex items-center gap-2">
             <Activity size={18} className="text-primary" />
-            System Status
+            System Services
           </h2>
           <div className="rounded-lg border border-border overflow-hidden">
             <table className="w-full text-sm">
@@ -184,11 +300,11 @@ const Portal = () => {
                 <tr className="border-b bg-muted/50">
                   <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Service</th>
                   <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Endpoint</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Detail</th>
                 </tr>
               </thead>
               <tbody>
-                {systemStatus.map((s) => (
+                {services.map((s) => (
                   <tr key={s.name} className="border-b last:border-0">
                     <td className="px-4 py-2.5 font-medium text-xs">{s.name}</td>
                     <td className="px-4 py-2.5">
@@ -197,7 +313,7 @@ const Portal = () => {
                         {s.status === "live" ? "Live" : "Active"}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">{s.url}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{s.detail}</td>
                   </tr>
                 ))}
               </tbody>
