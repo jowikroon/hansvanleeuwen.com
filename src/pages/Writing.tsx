@@ -5,7 +5,7 @@ import { blogPosts } from "@/data/content";
 import { BlogPost } from "@/data/types";
 import { Calendar, Clock, ArrowRight } from "lucide-react";
 
-type Filter = "all" | "professional" | "personal";
+type Filter = string;
 
 const tagAccent: Record<string, string> = {
   "E-commerce": "bg-primary/10 text-primary",
@@ -127,15 +127,15 @@ function ArticleCard({ post, size = "default" }: { post: BlogPost; size?: "defau
 const Writing = () => {
   const [filter, setFilter] = useState<Filter>("all");
 
+  const allTags = [...new Set(blogPosts.flatMap((p) => p.tags))];
+
   const filtered = useMemo(() => {
     if (filter === "all") return blogPosts;
-    return blogPosts.filter((p) => p.category === filter);
+    return blogPosts.filter((p) => p.tags.includes(filter) || p.category === filter);
   }, [filter]);
 
   const featured = filtered.find((p) => p.featured);
   const rest = filtered.filter((p) => p !== featured);
-
-  const allTags = [...new Set(blogPosts.flatMap((p) => p.tags))];
 
   return (
     <section className="section-container pt-28 pb-20">
@@ -158,11 +158,12 @@ const Writing = () => {
       {/* Hero featured article */}
       {featured && <HeroArticle post={featured} />}
 
-      {/* Filter bar */}
+      {/* Filter bar — tag-based like MG's news section */}
       <div className="flex items-center gap-2 mt-10 mb-8 overflow-x-auto pb-1">
-        {(["all", "professional", "personal"] as const).map((f) => {
+        {["all", ...allTags].map((f) => {
           const isActive = filter === f;
-          const count = f === "all" ? blogPosts.length : blogPosts.filter((p) => p.category === f).length;
+          const count = f === "all" ? blogPosts.length : blogPosts.filter((p) => p.tags.includes(f)).length;
+          const accent = f !== "all" ? tagAccent[f] : null;
           return (
             <button
               key={f}
@@ -173,7 +174,10 @@ const Writing = () => {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
             >
-              {f === "all" ? "All Essays" : f.charAt(0).toUpperCase() + f.slice(1)}
+              {accent && !isActive && (
+                <span className={`h-1.5 w-1.5 rounded-full ${accent.split(" ")[0].replace("/10", "").replace("bg-", "bg-")}`} style={{ backgroundColor: f === "E-commerce" ? "var(--primary)" : undefined }} />
+              )}
+              {f === "all" ? "All" : f}
               <span className={`text-[10px] tabular-nums ${isActive ? "text-background/60" : "text-muted-foreground/50"}`}>
                 {count}
               </span>
