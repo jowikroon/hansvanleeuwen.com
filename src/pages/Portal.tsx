@@ -83,7 +83,7 @@ const Portal = () => {
           </div>
           <h1 className="mb-3 font-display text-4xl font-medium text-foreground">Portal</h1>
           <p className="mb-8 max-w-md text-muted-foreground leading-relaxed">
-            Your operational command center. Sign in to access tools, dashboards, AI agents, and infrastructure monitoring.
+            Sign in to access your tools, dashboards, AI agents, and infrastructure overview.
           </p>
           <button
             onClick={signInWithGoogle}
