@@ -62,13 +62,12 @@ const Navbar = () => {
                   <img
                     src={user.user_metadata.avatar_url}
                     alt=""
-                    className="h-5 w-5 rounded-full"
+                    className="h-6 w-6 rounded-full"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 ) : (
-                  <User size={14} />
+                  <User size={16} />
                 )}
-                Portal
                 <ChevronDown size={12} className={`transition-transform ${profileOpen ? "rotate-180" : ""}`} />
               </button>
 
