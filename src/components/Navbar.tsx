@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, LogIn } from "lucide-react";
+import { Menu, X, LogIn, PenLine, Newspaper, Bot, ChevronDown, User, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const links = [
@@ -14,7 +14,23 @@ const links = [
 const Navbar = () => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const { user, signOut } = useAuth();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Close dropdown on route change
+  useEffect(() => { setProfileOpen(false); setMobileOpen(false); }, [location.pathname]);
 
   return (
     <nav className="fixed top-0 z-50 w-full bg-background/80 backdrop-blur-md">
@@ -34,27 +50,89 @@ const Navbar = () => {
               {link.label}
             </Link>
           ))}
-          <Link
-            to="/portal"
-            className={`inline-flex items-center gap-1.5 nav-link ${location.pathname === "/portal" ? "active" : ""}`}
-          >
-            {user ? (
-              <>
-                <img
-                  src={user.user_metadata?.avatar_url || ""}
-                  alt=""
-                  className="h-5 w-5 rounded-full"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
+
+          {user ? (
+            /* Profile dropdown */
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="inline-flex items-center gap-1.5 nav-link"
+              >
+                {user.user_metadata?.avatar_url ? (
+                  <img
+                    src={user.user_metadata.avatar_url}
+                    alt=""
+                    className="h-5 w-5 rounded-full"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : (
+                  <User size={14} />
+                )}
                 Portal
-              </>
-            ) : (
-              <>
-                <LogIn size={14} />
-                Login
-              </>
-            )}
-          </Link>
+                <ChevronDown size={12} className={`transition-transform ${profileOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              <AnimatePresence>
+                {profileOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-background/95 backdrop-blur-md shadow-lg overflow-hidden"
+                  >
+                    <Link
+                      to="/portal"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <User size={14} />
+                      Dashboard
+                    </Link>
+                    <Link
+                      to="/portal/blog"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <PenLine size={14} />
+                      Blogs
+                    </Link>
+                    <Link
+                      to="/writing"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <Newspaper size={14} />
+                      News
+                    </Link>
+                    <div className="border-t border-border" />
+                    <a
+                      href="https://t.me/Samanthahansbot"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <Bot size={14} />
+                      Samantha AI
+                    </a>
+                    <div className="border-t border-border" />
+                    <button
+                      onClick={signOut}
+                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <LogOut size={14} />
+                      Sign out
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <Link
+              to="/portal"
+              className={`inline-flex items-center gap-1.5 nav-link ${location.pathname === "/portal" ? "active" : ""}`}
+            >
+              <LogIn size={14} />
+              Login
+            </Link>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -87,14 +165,30 @@ const Navbar = () => {
                   {link.label}
                 </Link>
               ))}
-              <Link
-                to="/portal"
-                onClick={() => setMobileOpen(false)}
-                className={`nav-link text-base inline-flex items-center gap-2 ${location.pathname === "/portal" ? "active" : ""}`}
-              >
-                <LogIn size={14} />
-                {user ? "Portal" : "Login"}
-              </Link>
+              {user ? (
+                <>
+                  <div className="border-t border-border pt-2" />
+                  <Link to="/portal" onClick={() => setMobileOpen(false)} className="nav-link text-base inline-flex items-center gap-2">
+                    <User size={14} /> Dashboard
+                  </Link>
+                  <Link to="/portal/blog" onClick={() => setMobileOpen(false)} className="nav-link text-base inline-flex items-center gap-2">
+                    <PenLine size={14} /> Blogs
+                  </Link>
+                  <Link to="/writing" onClick={() => setMobileOpen(false)} className="nav-link text-base inline-flex items-center gap-2">
+                    <Newspaper size={14} /> News
+                  </Link>
+                  <a href="https://t.me/Samanthahansbot" target="_blank" rel="noopener noreferrer" onClick={() => setMobileOpen(false)} className="nav-link text-base inline-flex items-center gap-2">
+                    <Bot size={14} /> Samantha AI
+                  </a>
+                  <button onClick={signOut} className="nav-link text-base inline-flex items-center gap-2 text-left">
+                    <LogOut size={14} /> Sign out
+                  </button>
+                </>
+              ) : (
+                <Link to="/portal" onClick={() => setMobileOpen(false)} className="nav-link text-base inline-flex items-center gap-2">
+                  <LogIn size={14} /> Login
+                </Link>
+              )}
             </div>
           </motion.div>
         )}
