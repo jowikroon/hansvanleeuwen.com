@@ -82,13 +82,6 @@ const Navbar = () => {
                     className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-background/95 backdrop-blur-md shadow-lg overflow-hidden"
                   >
                     <Link
-                      to="/portal"
-                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                    >
-                      <User size={14} />
-                      Dashboard
-                    </Link>
-                    <Link
                       to="/portal/blog"
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                     >
@@ -168,9 +161,6 @@ const Navbar = () => {
               {user ? (
                 <>
                   <div className="border-t border-border pt-2" />
-                  <Link to="/portal" onClick={() => setMobileOpen(false)} className="nav-link text-base inline-flex items-center gap-2">
-                    <User size={14} /> Dashboard
-                  </Link>
                   <Link to="/portal/blog" onClick={() => setMobileOpen(false)} className="nav-link text-base inline-flex items-center gap-2">
                     <PenLine size={14} /> Blogs
                   </Link>
