@@ -37,7 +37,34 @@ interface VoiceTemplate {
   closing_examples: string[];
 }
 
-type Tab = "articles" | "editor" | "voice" | "improve";
+type Tab = "articles" | "editor" | "voice" | "improve" | "analyze";
+
+interface AgentReview {
+  id: string;
+  article_id: string;
+  agent_name: string;
+  agent_role: string;
+  score: number | null;
+  verdict: string | null;
+  feedback: string;
+  suggestions: string[];
+  created_at: string;
+}
+
+const AGENT_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
+  "Taalagent": { bg: "bg-blue-500/10", text: "text-blue-400", icon: "📝" },
+  "Structuuragent": { bg: "bg-violet-500/10", text: "text-violet-400", icon: "🏗️" },
+  "SEO-agent": { bg: "bg-emerald-500/10", text: "text-emerald-400", icon: "🔍" },
+  "AI-detectieagent": { bg: "bg-amber-500/10", text: "text-amber-400", icon: "🤖" },
+  "Reviewer": { bg: "bg-cyan-500/10", text: "text-cyan-400", icon: "✅" },
+  "Hoofdredacteur": { bg: "bg-primary/10", text: "text-primary", icon: "👤" },
+};
+
+const VERDICT_STYLE: Record<string, { label: string; class: string }> = {
+  pass: { label: "Approved", class: "bg-emerald-500/10 text-emerald-400" },
+  revise: { label: "Needs revision", class: "bg-amber-500/10 text-amber-400" },
+  reject: { label: "Rejected", class: "bg-red-500/10 text-red-400" },
+};
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-zinc-500/10 text-zinc-400",
@@ -54,6 +81,12 @@ const BlogManager = () => {
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<VoiceTemplate | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Analyze state
+  const [analyzeArticleId, setAnalyzeArticleId] = useState("");
+  const [reviews, setReviews] = useState<AgentReview[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
 
   // Editor state
   const [edTitle, setEdTitle] = useState("");
@@ -204,6 +237,7 @@ const BlogManager = () => {
             ["editor", editingArticle ? "Edit" : "New Article"],
             ["voice", "Voice Templates"],
             ["improve", "AI Improve"],
+            ["analyze", "Agent Reviews"],
           ] as const).map(([id, label]) => (
             <button
               key={id}
@@ -572,6 +606,210 @@ const BlogManager = () => {
                 <p className="text-xs text-muted-foreground">Uses the article's voice template for consistent tone.</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ─── ANALYZE TAB ─── */}
+        {tab === "analyze" && (
+          <div className="max-w-3xl">
+            <h2 className="mb-2 text-lg font-medium text-foreground">Agent Review History</h2>
+            <p className="mb-6 text-sm text-muted-foreground">
+              See what each AI agent said about your articles — their scores, feedback, and specific suggestions. This is the internal editorial discussion that shapes every published piece.
+            </p>
+
+            {/* Article selector */}
+            <div className="mb-6">
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Select Article</label>
+              <select
+                value={analyzeArticleId}
+                onChange={async (e) => {
+                  setAnalyzeArticleId(e.target.value);
+                  setExpandedAgent(null);
+                  if (!e.target.value) { setReviews([]); return; }
+                  setLoadingReviews(true);
+                  const { data } = await supabase
+                    .from("hvl_blog_agent_reviews")
+                    .select("*")
+                    .eq("article_id", e.target.value)
+                    .order("created_at");
+                  setReviews((data as AgentReview[]) ?? []);
+                  setLoadingReviews(false);
+                }}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
+              >
+                <option value="">Choose an article...</option>
+                {articles.map((a) => (
+                  <option key={a.id} value={a.id}>{a.title} ({a.status})</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Loading */}
+            {loadingReviews && (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-20 rounded-lg bg-muted/30 animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
+                ))}
+              </div>
+            )}
+
+            {/* No reviews */}
+            {analyzeArticleId && !loadingReviews && reviews.length === 0 && (
+              <div className="rounded-lg border border-dashed border-border py-12 text-center">
+                <p className="text-muted-foreground mb-1">No agent reviews for this article yet.</p>
+                <p className="text-xs text-muted-foreground">Run the AI review pipeline from the "AI Improve" tab to generate feedback.</p>
+              </div>
+            )}
+
+            {/* Summary bar */}
+            {reviews.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {reviews.length} agents reviewed · Avg score: {Math.round(reviews.reduce((s, r) => s + (r.score ?? 0), 0) / reviews.filter((r) => r.score !== null).length)}/100
+                  </span>
+                  <span className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(reviews[0].created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+
+                {/* Score bar overview */}
+                <div className="flex gap-1.5 mb-6">
+                  {reviews.map((r) => {
+                    const colors = AGENT_COLORS[r.agent_name] ?? { bg: "bg-muted", text: "text-muted-foreground", icon: "🔵" };
+                    const score = r.score ?? 0;
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => setExpandedAgent(expandedAgent === r.id ? null : r.id)}
+                        className={`flex-1 rounded-lg border p-3 text-center transition-all ${
+                          expandedAgent === r.id ? "border-primary/40 shadow-sm" : "border-border hover:border-primary/20"
+                        }`}
+                      >
+                        <span className="text-lg">{colors.icon}</span>
+                        <p className="text-[10px] font-medium mt-1">{r.agent_name}</p>
+                        <p className={`text-lg font-display font-medium mt-0.5 ${
+                          score >= 85 ? "text-emerald-400" : score >= 70 ? "text-amber-400" : "text-red-400"
+                        }`}>{score}</p>
+                        {r.verdict && (
+                          <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-[9px] font-semibold ${VERDICT_STYLE[r.verdict]?.class ?? ""}`}>
+                            {VERDICT_STYLE[r.verdict]?.label ?? r.verdict}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Expanded agent reviews — conversation thread */}
+            {reviews.length > 0 && (
+              <div className="space-y-3">
+                {(expandedAgent ? reviews.filter((r) => r.id === expandedAgent) : reviews).map((review) => {
+                  const colors = AGENT_COLORS[review.agent_name] ?? { bg: "bg-muted", text: "text-muted-foreground", icon: "🔵" };
+                  const isExpanded = expandedAgent === review.id || !expandedAgent;
+
+                  return (
+                    <div
+                      key={review.id}
+                      className={`rounded-xl border transition-all ${
+                        expandedAgent === review.id ? "border-primary/30" : "border-border"
+                      }`}
+                    >
+                      {/* Agent header */}
+                      <button
+                        onClick={() => setExpandedAgent(expandedAgent === review.id ? null : review.id)}
+                        className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/20 transition-colors rounded-t-xl"
+                      >
+                        <span className={`h-9 w-9 rounded-lg ${colors.bg} flex items-center justify-center text-lg shrink-0`}>
+                          {colors.icon}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-semibold ${colors.text}`}>{review.agent_name}</span>
+                            <span className="text-[10px] text-muted-foreground">{review.agent_role}</span>
+                          </div>
+                          {!isExpanded && (
+                            <p className="text-xs text-muted-foreground truncate mt-0.5">{review.feedback.slice(0, 80)}...</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {review.score !== null && (
+                            <span className={`text-sm font-display font-medium ${
+                              review.score >= 85 ? "text-emerald-400" : review.score >= 70 ? "text-amber-400" : "text-red-400"
+                            }`}>{review.score}/100</span>
+                          )}
+                          {review.verdict && (
+                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${VERDICT_STYLE[review.verdict]?.class ?? ""}`}>
+                              {VERDICT_STYLE[review.verdict]?.label}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+
+                      {/* Expanded content — the agent's full "message" */}
+                      {isExpanded && (
+                        <div className="border-t border-border/50 px-4 pb-4">
+                          {/* Feedback — styled like a chat message */}
+                          <div className="mt-4 rounded-lg bg-muted/30 p-4">
+                            <p className="text-sm leading-relaxed text-foreground/80">{review.feedback}</p>
+                          </div>
+
+                          {/* Suggestions — styled like action items */}
+                          {review.suggestions.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Suggested Changes</p>
+                              <div className="space-y-1.5">
+                                {review.suggestions.map((s, i) => (
+                                  <div key={i} className="flex items-start gap-2 py-1.5 px-3 rounded-lg hover:bg-muted/20 transition-colors group">
+                                    <span className={`mt-0.5 h-5 w-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${colors.bg} ${colors.text}`}>
+                                      {i + 1}
+                                    </span>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">{s}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Timestamp */}
+                          <p className="mt-4 text-[10px] text-muted-foreground/50">
+                            Reviewed {new Date(review.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Legend */}
+            {reviews.length > 0 && (
+              <div className="mt-8 rounded-lg bg-muted/20 border border-border/50 p-4">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Agent Pipeline</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {Object.entries(AGENT_COLORS).map(([name, colors]) => (
+                    <div key={name} className="flex items-center gap-2">
+                      <span className={`h-6 w-6 rounded ${colors.bg} flex items-center justify-center text-xs`}>{colors.icon}</span>
+                      <div>
+                        <p className={`text-[11px] font-medium ${colors.text}`}>{name}</p>
+                        <p className="text-[9px] text-muted-foreground">
+                          {name === "Taalagent" && "Dutch language & grammar"}
+                          {name === "Structuuragent" && "Content structure & flow"}
+                          {name === "SEO-agent" && "Search optimization"}
+                          {name === "AI-detectieagent" && "AI content detection"}
+                          {name === "Reviewer" && "Fact-check & audience fit"}
+                          {name === "Hoofdredacteur" && "Chief editor — Hans' voice"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </motion.div>
