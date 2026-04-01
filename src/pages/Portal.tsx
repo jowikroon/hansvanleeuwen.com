@@ -2,35 +2,31 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ExternalLink, LogOut, BarChart3, Workflow, Globe, Newspaper,
   Database, Shield, Bot, Sparkles, Activity, Server, DollarSign,
-  PenLine, Clock, Home, Cpu, CheckCircle2, AlertTriangle,
-  RefreshCw, Zap, ChevronDown, ChevronUp, Radio, Wifi, WifiOff,
+  PenLine, Clock, Home, Cpu, CheckCircle2, ChevronDown,
+  Plus, Trash2, X, Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-// ── Types ──
 interface ToolCard {
   id: string;
   name: string;
   description: string;
-  icon: typeof BarChart3;
+  icon: string;
   url: string;
-  color: string;
   badge?: string;
-  badgeColor?: string;
   internal?: boolean;
+  custom?: boolean;
 }
 
-interface ServiceRow {
-  name: string;
-  status: "live" | "active" | "degraded" | "down";
-  detail: string;
-  category: "core" | "cron" | "agent";
-}
+const ICON_MAP: Record<string, typeof BarChart3> = {
+  DollarSign, Sparkles, PenLine, Workflow, Database, Globe, Newspaper, Shield, Bot,
+  BarChart3, Server, Activity, Cpu, Home, Zap,
+};
 
-// ── Greeting ──
 function getGreeting(): string {
   const h = new Date().getHours();
   if (h < 6) return "Working late";
@@ -39,31 +35,74 @@ function getGreeting(): string {
   return "Good evening";
 }
 
-function timeAgo(date: Date): string {
-  const s = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
+const DEFAULT_TOOLS: ToolCard[] = [
+  { id: "mg-profit", name: "Profitability", description: "Per-SKU margins, FIFO COGS, 15+ fee categories.", icon: "DollarSign", url: "https://marketplacegrowth.nl/app", badge: "Live" },
+  { id: "mg-content", name: "Content Builder", description: "AI 5-step wizard with inline editing and compliance.", icon: "Sparkles", url: "https://marketplacegrowth.nl/app", badge: "Live" },
+  { id: "blog-cms", name: "Blog CMS", description: "3 voice templates, markdown editor, AI improve.", icon: "PenLine", url: "/portal/blog", internal: true },
+  { id: "n8n", name: "n8n Workflows", description: "34+ workflows — news, sync, agents, reports.", icon: "Workflow", url: "https://n8n.srv1402218.hstgr.cloud", badge: "Self-hosted" },
+  { id: "supabase", name: "Supabase", description: "70+ tables, Vault, edge functions, pg_cron.", icon: "Database", url: "https://supabase.com/dashboard/project/pesfakewujjwkyybwaom" },
+  { id: "vercel", name: "Vercel", description: "Auto-deploy for both sites.", icon: "Globe", url: "https://vercel.com/hansvl3-4255s-projects" },
+  { id: "news", name: "News Intelligence", description: "26 sources, AI categorization, Reddit discovery.", icon: "Newspaper", url: "https://marketplacegrowth.nl/app", badge: "30min" },
+  { id: "admin", name: "User Directory", description: "User management, onboarding, roles.", icon: "Shield", url: "https://marketplacegrowth.nl/app/admin/users", badge: "Admin" },
+  { id: "samantha", name: "Samantha AI", description: "Personal assistant + 4 specialist agents.", icon: "Bot", url: "https://t.me/Samanthahansbot", badge: "Voice" },
+];
 
 const Portal = () => {
   const { user, loading, signInWithGoogle, signOut } = useAuth();
   const [now, setNow] = useState(new Date());
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [tools, setTools] = useState<ToolCard[]>(DEFAULT_TOOLS);
+  const [showAddTool, setShowAddTool] = useState(false);
+  const [newTool, setNewTool] = useState({ name: "", description: "", url: "", icon: "Zap", badge: "" });
 
-  // Live clock
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(t);
   }, []);
+
+  // Load custom tools from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("hvl_custom_tools");
+    if (saved) {
+      try {
+        const custom = JSON.parse(saved) as ToolCard[];
+        setTools([...DEFAULT_TOOLS, ...custom]);
+      } catch {}
+    }
+  }, []);
+
+  function saveCustomTools(allTools: ToolCard[]) {
+    const custom = allTools.filter((t) => t.custom);
+    localStorage.setItem("hvl_custom_tools", JSON.stringify(custom));
+    setTools(allTools);
+  }
+
+  function addTool() {
+    if (!newTool.name || !newTool.url) return;
+    const tool: ToolCard = {
+      id: `custom-${Date.now()}`,
+      name: newTool.name,
+      description: newTool.description,
+      icon: newTool.icon,
+      url: newTool.url,
+      badge: newTool.badge || undefined,
+      custom: true,
+    };
+    saveCustomTools([...tools, tool]);
+    setNewTool({ name: "", description: "", url: "", icon: "Zap", badge: "" });
+    setShowAddTool(false);
+  }
+
+  function removeTool(id: string) {
+    saveCustomTools(tools.filter((t) => t.id !== id));
+  }
 
   if (loading) {
     return (
       <section className="section-container flex min-h-[60vh] items-center justify-center pt-28">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading portal...</p>
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </section>
     );
@@ -83,11 +122,11 @@ const Portal = () => {
           </div>
           <h1 className="mb-3 font-display text-4xl font-medium text-foreground">Portal</h1>
           <p className="mb-8 max-w-md text-muted-foreground leading-relaxed">
-            Sign in to access your tools, dashboards, AI agents, and infrastructure overview.
+            Sign in to access your tools, dashboards, and AI agents.
           </p>
           <button
             onClick={signInWithGoogle}
-            className="inline-flex items-center gap-3 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-all hover:opacity-80 hover:shadow-lg"
+            className="inline-flex items-center gap-3 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-all hover:opacity-80"
           >
             <svg viewBox="0 0 24 24" width="18" height="18" className="shrink-0">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -103,57 +142,31 @@ const Portal = () => {
   }
 
   const displayName = user.user_metadata?.full_name || user.email?.split("@")[0] || "Hans";
+  const toggle = (id: string) => setExpandedSection(expandedSection === id ? null : id);
 
-  // ── Tools ──
-  const tools: ToolCard[] = [
-    { id: "mg-profit", name: "Profitability", description: "Per-SKU margins, FIFO COGS, 15+ fee categories, TACoS tracking.", icon: DollarSign, url: "https://marketplacegrowth.nl/app", color: "text-green-500", badge: "Live", badgeColor: "bg-green-500/10 text-green-500" },
-    { id: "mg-content", name: "Content Builder", description: "AI-powered 5-step wizard with inline editing and compliance engine.", icon: Sparkles, url: "https://marketplacegrowth.nl/app", color: "text-violet-500", badge: "Live", badgeColor: "bg-violet-500/10 text-violet-500" },
-    { id: "blog-cms", name: "Blog CMS", description: "3 voice templates, markdown editor, revision history, AI improve.", icon: PenLine, url: "/portal/blog", color: "text-primary", internal: true },
-    { id: "n8n", name: "n8n Workflows", description: "34+ workflows — news, sync, agents, reports, smart home.", icon: Workflow, url: "https://n8n.srv1402218.hstgr.cloud", color: "text-orange-500", badge: "Self-hosted" },
-    { id: "supabase", name: "Supabase", description: "70+ tables, Vault, 13 edge functions, pg_cron jobs.", icon: Database, url: "https://supabase.com/dashboard/project/pesfakewujjwkyybwaom", color: "text-emerald-500" },
-    { id: "vercel", name: "Vercel", description: "Auto-deploy for marketplacegrowth.nl + hansvanleeuwen.com.", icon: Globe, url: "https://vercel.com/hansvl3-4255s-projects", color: "text-foreground" },
-    { id: "news", name: "News Intelligence", description: "26 sources, 6 regions, AI categorization, Reddit self-learning.", icon: Newspaper, url: "https://marketplacegrowth.nl/app", color: "text-blue-500", badge: "30min" },
-    { id: "admin", name: "User Directory", description: "User management, onboarding toggles, role assignment.", icon: Shield, url: "https://marketplacegrowth.nl/app/admin/users", color: "text-yellow-500", badge: "Admin" },
-    { id: "samantha", name: "Samantha AI", description: "Personal assistant + 4 specialist agents via Telegram.", icon: Bot, url: "https://t.me/Samanthahansbot", color: "text-pink-500", badge: "Voice" },
-  ];
-
-  // ── Infrastructure ──
-  const infra = [
-    { name: "VPS 2", subtitle: "OpenClaw + Ollama", icon: Server, specs: "KVM 4 · 16GB · 4 vCPU · 200GB NVMe", ip: "187.124.2.66", tailscale: "100.81.168.2", status: "live" as const },
-    { name: "VPS 1", subtitle: "n8n + Supabase + Qdrant", icon: Cpu, specs: "srv1402218.hstgr.cloud", ip: "187.124.1.75", tailscale: "—", status: "live" as const },
-    { name: "Pi 5", subtitle: "Home Assistant", icon: Home, specs: "93 entities · MCP connected", ip: "—", tailscale: "100.86.198.76", status: "live" as const },
-  ];
-
-  // ── Agents ──
   const agents = [
-    { name: "Samantha", model: "Sonnet 4.6", channel: "@Samanthahansbot", role: "Personal assistant, delegation hub", color: "text-pink-500" },
-    { name: "Marktpuls", model: "Haiku 4.5", channel: "@marketplacegrowthbot", role: "E-commerce intelligence", color: "text-blue-500" },
-    { name: "InfraWacht", model: "Haiku 4.5", channel: "@InfraWachtBot", role: "Infra monitoring + CRITICAL alerts", color: "text-amber-500" },
+    { name: "Samantha", model: "Sonnet 4.6", channel: "@Samanthahansbot", role: "Personal assistant", color: "text-pink-500" },
+    { name: "Marktpuls", model: "Haiku 4.5", channel: "@marketplacegrowthbot", role: "E-commerce intel", color: "text-blue-500" },
+    { name: "InfraWacht", model: "Haiku 4.5", channel: "@InfraWachtBot", role: "Infra monitoring", color: "text-amber-500" },
     { name: "Dagstart", model: "Haiku 4.5", channel: "@DagstartBot", role: "Morning briefing", color: "text-emerald-500" },
-    { name: "VerkoopPiloot", model: "Sonnet 4.6", channel: "@VerkoopPilootBot", role: "Listing generation (HITL)", color: "text-violet-500" },
+    { name: "VerkoopPiloot", model: "Sonnet 4.6", channel: "@VerkoopPilootBot", role: "Listing generation", color: "text-violet-500" },
   ];
 
-  // ── Services ──
-  const services: ServiceRow[] = [
-    { name: "MarketplaceGrowth.nl", status: "live", detail: "Vercel · React + Supabase", category: "core" },
-    { name: "HansVanLeeuwen.com", status: "live", detail: "Vercel · React + Supabase", category: "core" },
-    { name: "n8n Automation", status: "live", detail: "34 workflows · Self-hosted", category: "core" },
-    { name: "Supabase Cloud", status: "live", detail: "eu-central-1 · 70+ tables", category: "core" },
-    { name: "OpenClaw Gateway", status: "live", detail: "5 agents · Telegram + WhatsApp", category: "core" },
-    { name: "News Pipeline", status: "active", detail: "30-min cron · 26 RSS sources", category: "cron" },
-    { name: "Reddit Discovery", status: "active", detail: "6-hour cron · 6 subreddits", category: "cron" },
-    { name: "Profit Snapshots", status: "active", detail: "Daily 05:30 · pg_cron", category: "cron" },
-    { name: "Sales Sync", status: "active", detail: "Every 4h · SP-API + Bol.com", category: "cron" },
-    { name: "Settlements", status: "active", detail: "1st + 15th monthly", category: "cron" },
-    { name: "InfraWacht Health", status: "active", detail: "Every 6h · VPS monitoring", category: "agent" },
-    { name: "Dagstart Brief", status: "active", detail: "Daily 07:30 · Morning summary", category: "agent" },
-    { name: "Marktpuls Brief", status: "active", detail: "Mon-Fri 09:00 · News digest", category: "agent" },
+  const services = [
+    { name: "MarketplaceGrowth.nl", status: "live", detail: "Vercel · React + Supabase" },
+    { name: "HansVanLeeuwen.com", status: "live", detail: "Vercel · React + Supabase" },
+    { name: "n8n Automation", status: "live", detail: "34 workflows" },
+    { name: "Supabase Cloud", status: "live", detail: "70+ tables" },
+    { name: "OpenClaw Gateway", status: "live", detail: "5 agents" },
+    { name: "News Pipeline", status: "active", detail: "30-min · 26 sources" },
+    { name: "Profit Snapshots", status: "active", detail: "Daily 05:30" },
+    { name: "Sales Sync", status: "active", detail: "Every 4h" },
+    { name: "InfraWacht", status: "active", detail: "Every 6h" },
+    { name: "Dagstart", status: "active", detail: "Daily 07:30" },
   ];
 
   const liveCount = services.filter((s) => s.status === "live").length;
   const activeCount = services.filter((s) => s.status === "active").length;
-
-  const toggle = (id: string) => setExpandedSection(expandedSection === id ? null : id);
 
   return (
     <section className="section-container pt-28 pb-20">
@@ -178,118 +191,108 @@ const Portal = () => {
               </span>
             </p>
           </div>
-          <button
-            onClick={signOut}
-            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
+          <button onClick={signOut} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
             <LogOut size={14} /> Sign out
           </button>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-10">
-          {[
-            { label: "Services", value: `${liveCount + activeCount}`, sub: `${liveCount} live`, color: "text-green-500", icon: Activity },
-            { label: "Agents", value: "5", sub: "2 Sonnet · 3 Haiku", color: "text-pink-500", icon: Bot },
-            { label: "Workflows", value: "34+", sub: "n8n self-hosted", color: "text-orange-500", icon: Workflow },
-            { label: "Supabase", value: "70+", sub: "tables with RLS", color: "text-emerald-500", icon: Database },
-          ].map((s) => (
-            <div key={s.label} className="rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-medium text-muted-foreground">{s.label}</span>
-                <s.icon size={14} className={s.color} />
-              </div>
-              <p className="text-2xl font-display font-medium">{s.value}</p>
-              <p className="text-[11px] text-muted-foreground">{s.sub}</p>
-            </div>
-          ))}
-        </div>
-
         {/* Tools Grid */}
         <div className="mb-10">
-          <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Tools & Dashboards</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Tools & Dashboards</h2>
+            <button
+              onClick={() => setShowAddTool(!showAddTool)}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Plus size={12} /> Add tool
+            </button>
+          </div>
+
+          {/* Add tool form */}
+          <AnimatePresence>
+            {showAddTool && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden mb-4"
+              >
+                <div className="rounded-xl border border-border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Add Custom Tool</p>
+                    <button onClick={() => setShowAddTool(false)} className="text-muted-foreground hover:text-foreground"><X size={14} /></button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input value={newTool.name} onChange={(e) => setNewTool({ ...newTool, name: e.target.value })} placeholder="Tool name" className="rounded-lg border border-border bg-card px-3 py-2 text-sm" />
+                    <input value={newTool.url} onChange={(e) => setNewTool({ ...newTool, url: e.target.value })} placeholder="URL (https://... or /path)" className="rounded-lg border border-border bg-card px-3 py-2 text-sm" />
+                    <input value={newTool.description} onChange={(e) => setNewTool({ ...newTool, description: e.target.value })} placeholder="Description" className="rounded-lg border border-border bg-card px-3 py-2 text-sm" />
+                    <div className="flex gap-2">
+                      <select value={newTool.icon} onChange={(e) => setNewTool({ ...newTool, icon: e.target.value })} className="rounded-lg border border-border bg-card px-3 py-2 text-sm flex-1">
+                        {Object.keys(ICON_MAP).map((k) => <option key={k} value={k}>{k}</option>)}
+                      </select>
+                      <input value={newTool.badge} onChange={(e) => setNewTool({ ...newTool, badge: e.target.value })} placeholder="Badge" className="rounded-lg border border-border bg-card px-3 py-2 text-sm w-24" />
+                    </div>
+                  </div>
+                  <button onClick={addTool} disabled={!newTool.name || !newTool.url} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
+                    Add Tool
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {tools.map((tool, i) => {
-              const isInternal = tool.internal;
-              const Wrapper = isInternal ? Link : "a";
-              const props = isInternal ? { to: tool.url } : { href: tool.url, target: "_blank", rel: "noopener noreferrer" };
-              return (
+              const isInternal = tool.internal || tool.url.startsWith("/");
+              const Icon = ICON_MAP[tool.icon] || Zap;
+
+              const cardContent = (
                 <motion.div
                   key={tool.id}
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.35, delay: i * 0.04 }}
+                  className="group relative rounded-xl border border-border p-5 transition-all duration-200 hover:border-primary/30 hover:shadow-md"
                 >
-                  <Wrapper
-                    {...(props as any)}
-                    className="group block rounded-xl border border-border p-5 transition-all duration-200 hover:border-primary/30 hover:shadow-md"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="h-10 w-10 rounded-lg bg-muted/50 flex items-center justify-center group-hover:bg-muted transition-colors">
-                        <tool.icon size={20} className={tool.color} />
-                      </div>
-                      {tool.badge && (
-                        <Badge className={`text-[9px] border-0 ${tool.badgeColor ?? "bg-muted text-muted-foreground"}`}>{tool.badge}</Badge>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="h-10 w-10 rounded-lg bg-muted/50 flex items-center justify-center group-hover:bg-muted transition-colors">
+                      <Icon size={20} className="text-primary" />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {tool.badge && <Badge className="text-[9px] border-0 bg-muted text-muted-foreground">{tool.badge}</Badge>}
+                      {tool.custom && (
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeTool(tool.id); }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10"
+                        >
+                          <Trash2 size={12} className="text-destructive" />
+                        </button>
                       )}
                     </div>
-                    <h3 className="mb-1 text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {tool.name}
-                      {!isInternal && <ExternalLink size={10} className="ml-1.5 inline-block opacity-0 group-hover:opacity-60 transition-opacity" />}
-                    </h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
-                  </Wrapper>
+                  </div>
+                  <h3 className="mb-1 text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                    {tool.name}
+                    {!isInternal && <ExternalLink size={10} className="ml-1.5 inline-block opacity-0 group-hover:opacity-60 transition-opacity" />}
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
                 </motion.div>
+              );
+
+              // Internal links use React Router, external links navigate the full page
+              if (isInternal) {
+                return <Link key={tool.id} to={tool.url}>{cardContent}</Link>;
+              }
+              // External: window.location.href — opens as full page, NOT target="_blank"
+              return (
+                <a key={tool.id} href={tool.url} onClick={(e) => { e.preventDefault(); window.location.href = tool.url; }}>
+                  {cardContent}
+                </a>
               );
             })}
           </div>
         </div>
 
-        {/* Infrastructure */}
-        <div className="mb-10">
-          <button onClick={() => toggle("infra")} className="w-full flex items-center justify-between mb-4 group">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-              <Server size={14} className="text-primary" /> Infrastructure
-            </h2>
-            <ChevronDown size={14} className={`text-muted-foreground transition-transform ${expandedSection === "infra" ? "rotate-180" : ""}`} />
-          </button>
-          <AnimatePresence>
-            {(expandedSection === "infra" || expandedSection === null) && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {infra.map((node) => (
-                    <div key={node.name} className="rounded-xl border border-border p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center">
-                          <node.icon size={16} className="text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate">{node.name}</p>
-                          <p className="text-[10px] text-muted-foreground">{node.subtitle}</p>
-                        </div>
-                        <span className="flex items-center gap-1 text-[10px] text-green-500">
-                          <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Live
-                        </span>
-                      </div>
-                      <div className="space-y-1 text-[11px] text-muted-foreground">
-                        <p>{node.specs}</p>
-                        {node.ip !== "—" && <p className="font-mono">IP: {node.ip}</p>}
-                        {node.tailscale !== "—" && <p className="font-mono">Tailscale: {node.tailscale}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* AI Agents */}
+        {/* Agents */}
         <div className="mb-10">
           <button onClick={() => toggle("agents")} className="w-full flex items-center justify-between mb-4">
             <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
@@ -299,22 +302,10 @@ const Portal = () => {
           </button>
           <AnimatePresence>
             {(expandedSection === "agents" || expandedSection === null) && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
                   {agents.map((a) => (
-                    <a
-                      key={a.name}
-                      href={`https://t.me/${a.channel.slice(1)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group rounded-xl border border-border p-4 hover:border-primary/30 transition-all"
-                    >
+                    <a key={a.name} href={`https://t.me/${a.channel.slice(1)}`} className="group rounded-xl border border-border p-4 hover:border-primary/30 transition-all">
                       <div className="flex items-center gap-2 mb-2">
                         <Bot size={14} className={a.color} />
                         <span className="text-sm font-semibold group-hover:text-primary transition-colors">{a.name}</span>
@@ -332,7 +323,7 @@ const Portal = () => {
           </AnimatePresence>
         </div>
 
-        {/* System Services */}
+        {/* Services */}
         <div>
           <button onClick={() => toggle("services")} className="w-full flex items-center justify-between mb-4">
             <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
@@ -342,36 +333,18 @@ const Portal = () => {
           </button>
           <AnimatePresence>
             {(expandedSection === "services" || expandedSection === null) && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                 <div className="rounded-xl border border-border overflow-hidden">
-                  {(["core", "cron", "agent"] as const).map((cat, ci) => {
-                    const catServices = services.filter((s) => s.category === cat);
-                    const catLabel = cat === "core" ? "Core Services" : cat === "cron" ? "Scheduled Jobs" : "Agent Workflows";
-                    return (
-                      <div key={cat}>
-                        {ci > 0 && <div className="border-t border-border" />}
-                        <div className="px-4 py-2 bg-muted/30">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{catLabel}</span>
-                        </div>
-                        {catServices.map((s) => (
-                          <div key={s.name} className="flex items-center gap-3 px-4 py-2.5 border-t border-border/50 hover:bg-muted/20 transition-colors">
-                            <span className={`h-2 w-2 rounded-full shrink-0 ${s.status === "live" ? "bg-green-500" : "bg-blue-500"}`} />
-                            <span className="text-xs font-medium flex-1">{s.name}</span>
-                            <span className="text-[10px] text-muted-foreground hidden sm:block">{s.detail}</span>
-                            <Badge variant="outline" className={`text-[9px] ${s.status === "live" ? "text-green-500 border-green-500/20" : "text-blue-500 border-blue-500/20"}`}>
-                              {s.status}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
+                  {services.map((s) => (
+                    <div key={s.name} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors">
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${s.status === "live" ? "bg-green-500" : "bg-blue-500"}`} />
+                      <span className="text-xs font-medium flex-1">{s.name}</span>
+                      <span className="text-[10px] text-muted-foreground hidden sm:block">{s.detail}</span>
+                      <Badge variant="outline" className={`text-[9px] ${s.status === "live" ? "text-green-500 border-green-500/20" : "text-blue-500 border-blue-500/20"}`}>
+                        {s.status}
+                      </Badge>
+                    </div>
+                  ))}
                 </div>
               </motion.div>
             )}
