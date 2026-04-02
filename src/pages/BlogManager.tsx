@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Article {
   id: string;
@@ -143,47 +144,60 @@ const BlogManager = () => {
   }
 
   async function saveArticle() {
+    if (!edTitle.trim()) { toast.error("Title is required"); return; }
     setSaving(true);
     const slug = edSlug || edTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const wordCount = edContent.split(/\s+/).filter(Boolean).length;
     const readTime = `${Math.max(1, Math.ceil(wordCount / 200))} min read`;
 
+    // Smart defaults
+    const tags = edTags.split(",").map((t) => t.trim()).filter(Boolean);
+    if (tags.length === 0 && edCategory === "professional") tags.push("E-commerce");
+    const status = edStatus || "draft";
+    const excerpt = edExcerpt.trim() || edContent.slice(0, 200).replace(/[#*\n]/g, " ").trim() + "...";
+
     const row = {
       title: edTitle.trim(),
       slug,
-      excerpt: edExcerpt.trim(),
+      excerpt,
       content: edContent,
-      category: edCategory,
-      tags: edTags.split(",").map((t) => t.trim()).filter(Boolean),
-      status: edStatus,
+      category: edCategory || "professional",
+      tags,
+      status,
       voice_template_id: edVoiceId || null,
       word_count: wordCount,
       read_time: readTime,
-      published_at: edStatus === "published" ? new Date().toISOString() : editingArticle?.published_at ?? null,
+      published_at: status === "published" ? new Date().toISOString() : editingArticle?.published_at ?? null,
     };
 
-    if (editingArticle) {
-      const { error } = await supabase.from("hvl_blog_articles")
-        .update({ ...row, revision_count: editingArticle.revision_count + 1 })
-        .eq("id", editingArticle.id);
-      if (error) { alert(error.message); setSaving(false); return; }
+    try {
+      if (editingArticle) {
+        const { error } = await supabase.from("hvl_blog_articles")
+          .update({ ...row, revision_count: editingArticle.revision_count + 1 })
+          .eq("id", editingArticle.id);
+        if (error) throw error;
 
-      // Save revision
-      await supabase.from("hvl_blog_revisions").insert({
-        article_id: editingArticle.id,
-        content: edContent,
-        revision_note: "Manual edit",
-        word_count: wordCount,
-        created_by: "human",
-      });
-    } else {
-      const { error } = await supabase.from("hvl_blog_articles").insert(row);
-      if (error) { alert(error.message); setSaving(false); return; }
+        await supabase.from("hvl_blog_revisions").insert({
+          article_id: editingArticle.id,
+          content: edContent,
+          revision_note: "Manual edit",
+          word_count: wordCount,
+          created_by: "human",
+        });
+        toast.success("Article updated");
+      } else {
+        const { error } = await supabase.from("hvl_blog_articles").insert(row);
+        if (error) throw error;
+        toast.success("Article created");
+      }
+
+      await loadData();
+      setTab("articles");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save article");
+    } finally {
+      setSaving(false);
     }
-
-    await loadData();
-    setTab("articles");
-    setSaving(false);
   }
 
   async function deleteArticle(id: string) {
