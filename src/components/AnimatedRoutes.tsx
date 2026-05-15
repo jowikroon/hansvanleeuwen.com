@@ -9,6 +9,7 @@ import BlogPostPage from "@/pages/BlogPostPage";
 import Portal from "@/pages/Portal";
 import BlogManager from "@/pages/BlogManager";
 import NotFound from "@/pages/NotFound";
+import MarcelPage from "@/pages/MarcelPage";
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -23,6 +24,7 @@ const AnimatedRoutes = () => {
         <Route path="/about" element={<PageTransition><About /></PageTransition>} />
         <Route path="/portal" element={<PageTransition><Portal /></PageTransition>} />
         <Route path="/portal/blog" element={<PageTransition><BlogManager /></PageTransition>} />
+        <Route path="/marcel" element={<MarcelPage />} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>
