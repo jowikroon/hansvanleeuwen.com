@@ -299,6 +299,33 @@ export default function Write() {
     const content_nl = htmlToContent(nlHtml);
     if (!content) { showToast("Empty draft", "error"); return; }
 
+    // Auto-derive excerpt from first ~200 chars when none exists yet.
+    const derivedExcerpt =
+      (draft?.excerpt && draft.excerpt.trim()) ||
+      content.replace(/[#*>\n]/g, " ").trim().slice(0, 200);
+    const wc = wordCount(enHtml);
+
+    // Common payload used by both the webhook and the direct fallback.
+    const fullRow = {
+      title,
+      slug,
+      content,
+      content_nl,
+      excerpt: derivedExcerpt,
+      category: draft?.category || "professional",
+      tags: draft?.tags ?? [],
+      status: nextStatus,
+      voice_template_id: draft?.voice_template_id ?? null,
+      hero_image_url: heroUrl ?? draft?.hero_image_url ?? null,
+      word_count: wc,
+      read_time: `${Math.max(1, Math.ceil(wc / 220))} min read`,
+      published_at:
+        nextStatus === "published"
+          ? (draft?.published_at ?? new Date().toISOString())
+          : draft?.published_at ?? null,
+      updated_at: new Date().toISOString(),
+    };
+
     setSaving(true);
     try {
       const out = await postSave({
@@ -307,12 +334,12 @@ export default function Write() {
         slug,
         content,
         content_nl,
-        excerpt: draft?.excerpt ?? "",
-        category: draft?.category ?? "tech",
-        tags: draft?.tags ?? [],
+        excerpt: derivedExcerpt,
+        category: fullRow.category,
+        tags: fullRow.tags,
         status: nextStatus,
-        voice_template_id: draft?.voice_template_id ?? null,
-        hero_image_url: heroUrl ?? draft?.hero_image_url ?? null,
+        voice_template_id: fullRow.voice_template_id,
+        hero_image_url: fullRow.hero_image_url,
       });
       setLastSavedAt(new Date().toISOString());
       showToast(nextStatus === "published" ? "Published" : "Saved");
@@ -321,26 +348,28 @@ export default function Write() {
         setParams({ id: out.id, view });
       }
     } catch (err) {
-      // Fallback to direct Supabase update so writes still land even if the
-      // n8n webhook isn't deployed yet. Surface the webhook error in the toast.
+      // Webhook unavailable — write directly to Supabase with all NOT NULL
+      // fields populated so the row is valid for the public read policy.
       const msg = err instanceof Error ? err.message : String(err);
       try {
-        const row = {
-          title,
-          slug,
-          content,
-          content_nl,
-          status: nextStatus,
-          word_count: wordCount(enHtml),
-          updated_at: new Date().toISOString(),
-        };
         if (draft?.id) {
-          await supabase.from("hvl_blog_articles").update(row).eq("id", draft.id);
+          const { error } = await supabase
+            .from("hvl_blog_articles")
+            .update(fullRow)
+            .eq("id", draft.id);
+          if (error) throw error;
         } else {
-          await supabase.from("hvl_blog_articles").insert(row);
+          const { error } = await supabase
+            .from("hvl_blog_articles")
+            .insert(fullRow);
+          if (error) throw error;
         }
         setLastSavedAt(new Date().toISOString());
-        showToast(`Saved (fallback); webhook: ${msg.slice(0, 60)}`, "error");
+        showToast(
+          nextStatus === "published" ? "Published (direct)" : "Saved (direct)",
+        );
+        // Keep the webhook problem visible in the console so it gets fixed.
+        console.warn("[Write.tsx] webhook fell through:", msg);
         await loadArticles();
       } catch (fbErr) {
         showToast(`Save failed: ${fbErr instanceof Error ? fbErr.message : String(fbErr)}`, "error");
@@ -411,11 +440,11 @@ export default function Write() {
       <header className="topbar">
         <div className="brand"><span className="mark">h</span><span>Hans van Leeuwen</span></div>
         <nav>
-          <a onClick={() => navigate("/")}>Home</a>
-          <a onClick={() => navigate("/work")}>Werk</a>
-          <a onClick={() => navigate("/writing")}>Artikelen</a>
-          <a onClick={() => navigate("/about")}>Over Hans</a>
-          <a className="current">Command Center</a>
+          <a href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>Home</a>
+          <a href="/work" onClick={(e) => { e.preventDefault(); navigate("/work"); }}>Werk</a>
+          <a href="/writing" onClick={(e) => { e.preventDefault(); navigate("/writing"); }}>Artikelen</a>
+          <a href="/about" onClick={(e) => { e.preventDefault(); navigate("/about"); }}>Over Hans</a>
+          <span className="current" aria-current="page">Command Center</span>
         </nav>
         <div className="topbar-end">
           <button className="icon-btn" title="Search" aria-label="Search"><Icon.Search /></button>
@@ -479,7 +508,7 @@ export default function Write() {
                     <span className="sep">·</span>
                     {lastSavedAt ? (
                       <span className="save-state" key={tick}>
-                        <span className="pulse" /> autosaved {relTime(lastSavedAt)} ago
+                        <span className="pulse" /> saved {relTime(lastSavedAt)} ago
                       </span>
                     ) : (
                       <span style={{ color: "var(--ink-3)" }}>not saved yet</span>
@@ -580,6 +609,9 @@ export default function Write() {
                         contentEditable
                         suppressContentEditableWarning
                         spellCheck={false}
+                        role="textbox"
+                        aria-multiline="true"
+                        aria-label="English article body"
                         onInput={(e) => setEnHtml((e.target as HTMLDivElement).innerHTML)}
                       />
                     </div>
@@ -594,6 +626,9 @@ export default function Write() {
                         contentEditable
                         suppressContentEditableWarning
                         spellCheck={false}
+                        role="textbox"
+                        aria-multiline="true"
+                        aria-label="Dutch translation body"
                         onInput={(e) => setNlHtml((e.target as HTMLDivElement).innerHTML)}
                       />
                     </div>

@@ -2,8 +2,9 @@ import { useParams, Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { motion, useScroll, useSpring } from "framer-motion";
 import { ArrowLeft, ArrowRight, Calendar, Clock, ChevronUp } from "lucide-react";
-import { blogPosts } from "@/data/content";
+import { blogPosts as staticBlogPosts } from "@/data/content";
 import { blogContent } from "@/data/blogContent";
+import { fetchPublishedPostBySlug } from "@/data/publishedPosts";
 import { BlogPost } from "@/data/types";
 
 function ReadingProgress() {
@@ -57,27 +58,72 @@ function RelatedCard({ post }: { post: BlogPost }) {
   );
 }
 
+function renderInlineParts(text: string) {
+  // Split on bold, italic, code, and wiki links
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[\[[^\]]+\]\])/g);
+  return parts.map((part, j) => {
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={j} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
+    if (part.startsWith("*") && part.endsWith("*")) return <em key={j}>{part.slice(1, -1)}</em>;
+    if (part.startsWith("`") && part.endsWith("`")) return <code key={j} className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{part.slice(1, -1)}</code>;
+    if (part.startsWith("[[") && part.endsWith("]]")) {
+      const concept = part.slice(2, -2);
+      return <span key={j} className="text-primary font-medium border-b border-primary/30 cursor-help" title={`Knowledge Base: ${concept}`}>{concept}</span>;
+    }
+    return <span key={j}>{part}</span>;
+  });
+}
+
 function renderContent(raw: string) {
   return raw
     .split("\n")
     .map((line, i) => {
       const trimmed = line.trim();
+      // YouTube embed: [youtube:VIDEO_ID]
+      if (trimmed.match(/^\[youtube:([a-zA-Z0-9_-]{11})\]$/)) {
+        const videoId = trimmed.match(/^\[youtube:([a-zA-Z0-9_-]{11})\]$/)?.[1];
+        if (videoId) {
+          return (
+            <div key={i} className="my-8 rounded-xl overflow-hidden border border-border shadow-sm">
+              <div className="relative aspect-video">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${videoId}`}
+                  title="YouTube video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute inset-0 w-full h-full"
+                />
+              </div>
+            </div>
+          );
+        }
+      }
+      // Wiki-style concept link on its own line: [[Concept Name]]
+      if (trimmed.match(/^\[\[.*\]\]$/)) {
+        const concept = trimmed.match(/^\[\[(.*)\]\]$/)?.[1];
+        if (concept) {
+          return (
+            <div key={i} className="my-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-center gap-2">
+              <span className="text-primary">&#9670;</span>
+              <span className="text-sm font-medium text-primary">{concept}</span>
+              <span className="text-xs text-muted-foreground ml-1">— Knowledge Base concept</span>
+            </div>
+          );
+        }
+      }
       if (trimmed.startsWith("## ")) return <h2 key={i} className="text-xl sm:text-2xl font-display font-medium mt-10 mb-4 text-foreground">{trimmed.slice(3)}</h2>;
       if (trimmed.startsWith("### ")) return <h3 key={i} className="text-lg font-display font-medium mt-8 mb-3 text-foreground">{trimmed.slice(4)}</h3>;
       if (trimmed.startsWith("**") && trimmed.endsWith("**")) return <p key={i} className="text-base leading-relaxed mb-4 font-semibold text-foreground">{trimmed.replace(/\*\*/g, "")}</p>;
+      if (trimmed.startsWith("> ")) return <blockquote key={i} className="border-l-[3px] border-primary/40 pl-4 my-4 text-base text-muted-foreground italic">{renderInlineParts(trimmed.slice(2))}</blockquote>;
       if (trimmed.startsWith("- **")) {
         const match = trimmed.match(/\*\*(.*?)\*\*/);
         return <li key={i} className="text-base leading-relaxed mb-2 text-muted-foreground"><strong className="text-foreground">{match?.[1]}</strong>{trimmed.replace(/- \*\*.*?\*\*/, "")}</li>;
       }
-      if (trimmed.startsWith("- ")) return <li key={i} className="text-base leading-relaxed mb-2 text-muted-foreground">{trimmed.slice(2)}</li>;
+      if (trimmed.startsWith("- ")) return <li key={i} className="text-base leading-relaxed mb-2 text-muted-foreground">{renderInlineParts(trimmed.slice(2))}</li>;
+      if (/^\d+\.\s/.test(trimmed)) return <li key={i} className="text-base leading-relaxed mb-2 text-muted-foreground list-decimal ml-4">{renderInlineParts(trimmed.replace(/^\d+\.\s/, ""))}</li>;
       if (trimmed === "") return null;
-      const parts = trimmed.split(/(\*\*[^*]+\*\*)/g);
       return (
         <p key={i} className="text-[17px] leading-[1.85] mb-5 text-muted-foreground">
-          {parts.map((part, j) => {
-            if (part.startsWith("**") && part.endsWith("**")) return <strong key={j} className="font-semibold text-foreground">{part.replace(/\*\*/g, "")}</strong>;
-            return <span key={j}>{part}</span>;
-          })}
+          {renderInlineParts(trimmed)}
         </p>
       );
     })
@@ -87,10 +133,53 @@ function renderContent(raw: string) {
 const BlogPostPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
-  const post = blogPosts.find((p) => p.slug === slug);
-  const content = slug ? blogContent[slug] : undefined;
+
+  // Live post + content from Supabase; falls back to the static archive.
+  const [livePost, setLivePost] = useState<BlogPost | null>(null);
+  const [liveContent, setLiveContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!slug) { setLoading(false); return; }
+    setLoading(true);
+    fetchPublishedPostBySlug(slug)
+      .then((result) => {
+        if (cancelled) return;
+        if (result) {
+          setLivePost(result.post);
+          setLiveContent(result.row.content);
+        } else {
+          setLivePost(null);
+          setLiveContent(null);
+        }
+      })
+      .catch(() => { /* fall through to static */ })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  const staticPost = staticBlogPosts.find((p) => p.slug === slug);
+  const post: BlogPost | undefined = livePost ?? staticPost;
+  const content =
+    liveContent ?? (slug ? blogContent[slug] : undefined);
+
+  // Build the related list from the merged archive (live wins on slug collision)
+  const mergedArchive = (() => {
+    const live = livePost ? [livePost] : [];
+    const liveSlugs = new Set(live.map((p) => p.slug));
+    return [...live, ...staticBlogPosts.filter((p) => !liveSlugs.has(p.slug))];
+  })();
 
   useEffect(() => { window.scrollTo(0, 0); }, [location.pathname]);
+
+  if (loading && !staticPost) {
+    return (
+      <section className="section-container pt-28 text-center">
+        <p className="text-muted-foreground">Loading…</p>
+      </section>
+    );
+  }
 
   if (!post) {
     return (
@@ -101,7 +190,7 @@ const BlogPostPage = () => {
     );
   }
 
-  const related = blogPosts
+  const related = mergedArchive
     .filter((p) => p.slug !== slug)
     .sort((a, b) => {
       const aMatch = a.tags.some((t) => post.tags.includes(t)) ? 1 : 0;

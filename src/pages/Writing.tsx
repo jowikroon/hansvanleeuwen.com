@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { blogPosts } from "@/data/content";
+import { blogPosts as staticBlogPosts } from "@/data/content";
+import { fetchPublishedPosts } from "@/data/publishedPosts";
 import { BlogPost } from "@/data/types";
 import {
   Calendar,
@@ -325,9 +326,26 @@ const Writing = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
+  // Live posts from Supabase merged with curated static archive.
+  // Live posts win on slug collisions so re-publishing replaces the static copy.
+  const [livePosts, setLivePosts] = useState<BlogPost[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchPublishedPosts()
+      .then(({ posts }) => { if (!cancelled) setLivePosts(posts); })
+      .catch(() => { /* fall back silently to static archive */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const blogPosts = useMemo<BlogPost[]>(() => {
+    const liveSlugs = new Set(livePosts.map((p) => p.slug));
+    const archive = staticBlogPosts.filter((p) => !liveSlugs.has(p.slug));
+    return [...livePosts, ...archive];
+  }, [livePosts]);
+
   const allTags = useMemo(
     () => [...new Set(blogPosts.flatMap((p) => p.tags))],
-    []
+    [blogPosts]
   );
 
   const tagCounts = useMemo(() => {
@@ -336,7 +354,7 @@ const Writing = () => {
       for (const t of p.tags) counts[t] = (counts[t] ?? 0) + 1;
     }
     return counts;
-  }, []);
+  }, [blogPosts]);
 
   // Keyboard shortcut: "/" focuses search, Esc closes
   useEffect(() => {
@@ -371,7 +389,7 @@ const Writing = () => {
     }
     // Sort by date desc for predictable ordering
     return [...list].sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [filter, searchQuery]);
+  }, [blogPosts, filter, searchQuery]);
 
   const isFilteredOrSearching = filter !== "all" || searchQuery.length > 0;
 
@@ -380,7 +398,7 @@ const Writing = () => {
     if (isFilteredOrSearching) return null;
     const featured = blogPosts.filter((p) => p.featured).sort((a, b) => (a.date < b.date ? 1 : -1));
     return featured[0] ?? filtered[0] ?? null;
-  }, [filtered, isFilteredOrSearching]);
+  }, [blogPosts, filtered, isFilteredOrSearching]);
 
   const withoutHero = hero ? filtered.filter((p) => p.id !== hero.id) : filtered;
 
