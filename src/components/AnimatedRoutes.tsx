@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import PageTransition from "./PageTransition";
@@ -10,6 +11,9 @@ import Portal from "@/pages/Portal";
 import BlogManager from "@/pages/BlogManager";
 import NotFound from "@/pages/NotFound";
 import MarcelPage from "@/pages/MarcelPage";
+
+const SeoCMS = lazy(() => import("@/pages/SeoCMS"));
+const Write = lazy(() => import("@/pages/Write"));
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -24,6 +28,8 @@ const AnimatedRoutes = () => {
         <Route path="/about" element={<PageTransition><About /></PageTransition>} />
         <Route path="/portal" element={<PageTransition><Portal /></PageTransition>} />
         <Route path="/portal/blog" element={<PageTransition><BlogManager /></PageTransition>} />
+        <Route path="/portal/write" element={<Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#0a0a0a]"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" /></div>}><PageTransition><Write /></PageTransition></Suspense>} />
+        <Route path="/seo-cms" element={<Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#0a0a0a]"><div className="h-6 w-6 animate-spin rounded-full border-2 border-teal-400 border-t-transparent" /></div>}><PageTransition><SeoCMS /></PageTransition></Suspense>} />
         <Route path="/marcel" element={<MarcelPage />} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>

@@ -11,20 +11,23 @@ import AnimatedRoutes from "./components/AnimatedRoutes";
 const queryClient = new QueryClient();
 
 const CHROMELESS_ROUTES = ["/marcel"];
+const DARK_PAGES = ["/seo-cms", "/portal/blog", "/portal/write"];
 
-function AppShell() {
+const AppShell = () => {
   const { pathname } = useLocation();
   const hideChrome = CHROMELESS_ROUTES.includes(pathname);
+  const isDarkPage = DARK_PAGES.some((p) => pathname.startsWith(p));
+
   return (
     <AuthProvider>
       {!hideChrome && <Navbar />}
-      <main className="min-h-screen">
+      <main className={`min-h-screen ${isDarkPage ? "bg-[#0a0a0a]" : ""}`}>
         <AnimatedRoutes />
       </main>
-      {!hideChrome && <Footer />}
+      {!hideChrome && !isDarkPage && <Footer />}
     </AuthProvider>
   );
-}
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
