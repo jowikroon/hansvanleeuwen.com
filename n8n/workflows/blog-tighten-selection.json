@@ -1,0 +1,129 @@
+{
+  "name": "blog-tighten-selection",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "blog" }, { "name": "selection" }],
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "blog-tighten-selection",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+              { "name": "Access-Control-Allow-Headers", "value": "content-type" }
+            ]
+          }
+        }
+      },
+      "id": "trigger",
+      "name": "Webhook · POST /webhook/blog-tighten-selection",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 320],
+      "webhookId": "blog-tighten-selection"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst text = (body.text ?? '').toString();\nif (!text.trim()) throw new Error('empty_selection');\nconst paragraph = (body.paragraph_context ?? '').toString();\nconst voiceId = body.voice_template_id ?? null;\nconst intensity = body.intensity === 'aggressive' ? 'aggressive' : 'editor';\nconst beforeWords = text.trim().split(/\\s+/).filter(Boolean).length;\nreturn [{ json: { text, paragraph, voice_id: voiceId, intensity, before_words: beforeWords } }];"
+      },
+      "id": "parse",
+      "name": "Parse + count words",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 320]
+    },
+
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "hvl_voice_templates",
+        "where": {
+          "values": [
+            { "column": "id", "value": "={{ $json.voice_id }}" }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "voice_lookup",
+      "name": "Voice template lookup",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [640, 320],
+      "credentials": {
+        "supabaseApi": { "name": "Supabase · pesfakewujjwkyybwaom" }
+      },
+      "continueOnFail": true
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Compose the system prompt. Falls back to a sensible default voice when no template found.\nconst voice = $input.first().json;\nconst ctx = $('parse').first().json;\nconst tone = voice?.tone || 'plainspoken, slightly skeptical of hype';\nconst style = voice?.writing_style || 'short opening sentence, concrete numbers, no filler adjectives';\nconst banned = Array.isArray(voice?.banned_words) ? voice.banned_words.join(', ') : 'easy, simple, just, leverage, unlock, synergy';\nconst aggressive = ctx.intensity === 'aggressive';\nconst targetWords = aggressive ? Math.max(8, Math.round(ctx.before_words * 0.7)) : Math.max(8, Math.round(ctx.before_words * 0.9));\nconst system = `You tighten prose without changing meaning, while preserving an author's voice.\\n\\nVoice tone: ${tone}\\nWriting style: ${style}\\nBanned words (never include in output): ${banned}\\n\\nRules:\\n- Output ONLY the rewritten text, no preface, no quotes.\\n- Target roughly ${targetWords} words (currently ${ctx.before_words}).\\n- Drop filler adjectives, adverbs, redundant connectors.\\n- Keep technical terms exact.\\n- Keep the original sentence structure when it serves the rhythm.\\n- Never invent facts the original didn't contain.`;\nreturn [{ json: { ...ctx, system_prompt: system } }];"
+      },
+      "id": "compose_prompt",
+      "name": "Compose system prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 320]
+    },
+
+    {
+      "parameters": {
+        "model": "claude-haiku-4-5",
+        "operation": "messageModel",
+        "system": "={{ $json.system_prompt }}",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=Paragraph context (for tone, do NOT include in output):\\n{{ $json.paragraph }}\\n\\n---\\n\\nRewrite this passage tighter, on the same line of meaning:\\n\\n{{ $json.text }}"
+            }
+          ]
+        },
+        "options": { "maxTokens": 800 }
+      },
+      "id": "claude",
+      "name": "Claude Haiku · tighten",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [1040, 320],
+      "credentials": {
+        "anthropicApi": { "name": "Anthropic · Claude" }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "let text = $input.first().json.message ?? $input.first().json.text ?? $input.first().json.content ?? '';\ntext = text.trim();\n// Strip leading/trailing quotes some models add despite instructions.\ntext = text.replace(/^['\\\"\\u201C]+|['\\\"\\u201D]+$/g, '');\nconst beforeWords = $('parse').first().json.before_words;\nconst afterWords = text.split(/\\s+/).filter(Boolean).length;\nreturn [{ json: {\n  text,\n  before_words: beforeWords,\n  after_words: afterWords,\n  diff_summary: `${beforeWords} → ${afterWords} words (${Math.round((1 - afterWords/Math.max(beforeWords,1)) * 100)}% tighter)`,\n} }];"
+      },
+      "id": "shape",
+      "name": "Shape response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 320]
+    }
+  ],
+
+  "connections": {
+    "Webhook · POST /webhook/blog-tighten-selection": {
+      "main": [[{ "node": "Parse + count words", "type": "main", "index": 0 }]]
+    },
+    "Parse + count words": {
+      "main": [[{ "node": "Voice template lookup", "type": "main", "index": 0 }]]
+    },
+    "Voice template lookup": {
+      "main": [[{ "node": "Compose system prompt", "type": "main", "index": 0 }]]
+    },
+    "Compose system prompt": {
+      "main": [[{ "node": "Claude Haiku · tighten", "type": "main", "index": 0 }]]
+    },
+    "Claude Haiku · tighten": {
+      "main": [[{ "node": "Shape response", "type": "main", "index": 0 }]]
+    }
+  }
+}

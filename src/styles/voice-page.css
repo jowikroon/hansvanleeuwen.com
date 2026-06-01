@@ -1,0 +1,405 @@
+/* =========================================================
+   VoicePage — full voice template editor.
+   The 4th menu item after Write / Manage / Analytics.
+   Assumes shared tokens (--bg-0, --ink-0, --accent, etc.) are
+   already defined elsewhere.
+   ========================================================= */
+
+.voice-main {
+  grid-column: 2 / span 2;
+  display: flex; flex-direction: column;
+  gap: var(--s-5);
+  min-width: 0;
+}
+
+.voice-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  flex-wrap: wrap; gap: var(--s-4);
+  padding-bottom: var(--s-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.voice-shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: var(--s-6);
+  align-items: start;
+}
+
+/* ─── List rail ─────────────────────────────────────────── */
+.voice-list {
+  position: sticky; top: 88px;
+  display: flex; flex-direction: column;
+  gap: var(--s-2);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.voice-list-new {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 1.5px solid var(--ink-0);
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 13px; letter-spacing: .01em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--ink-0);
+  transition: transform 140ms, box-shadow 140ms;
+}
+.voice-list-new:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink-0); }
+.voice-list-new:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-0); }
+.voice-list-new .kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--bg-1); color: var(--ink-1);
+  border: 1px solid var(--ink-0);
+  padding: 1px 5px; border-radius: 3px;
+}
+
+.voice-list-empty {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  padding: 16px 12px;
+  text-align: center;
+}
+
+.voice-list-row {
+  display: block; text-align: left; width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 140ms, background 140ms, transform 140ms;
+}
+.voice-list-row:hover { border-color: var(--ink-0); transform: translateX(2px); }
+.voice-list-row.active {
+  border-color: var(--ink-0);
+  background: var(--accent-soft);
+  box-shadow: -3px 0 0 var(--accent);
+}
+.voice-list-row-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px;
+}
+.voice-list-row-name {
+  font-family: var(--font-display);
+  font-weight: 600; font-size: 14px;
+  color: var(--ink-0);
+  letter-spacing: -.01em;
+}
+.voice-list-row-meta {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-2);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.voice-list-row-meta .sep { color: var(--ink-3); }
+.voice-list-row-cat {
+  background: var(--bg-2);
+  padding: 1px 6px; border-radius: 3px;
+  color: var(--ink-1);
+}
+
+/* ─── Editor pane ───────────────────────────────────────── */
+.voice-editor {
+  background: var(--bg-1);
+  border: 1.5px solid var(--ink-0);
+  border-radius: 12px;
+  box-shadow: var(--shadow-stamp, 4px 4px 0 var(--ink-0));
+  padding: var(--s-6);
+  min-height: 60vh;
+}
+[data-theme="dark"] .voice-editor { box-shadow: 4px 4px 0 var(--ink-1); border-color: var(--ink-1); }
+
+.voice-empty {
+  text-align: center;
+  padding: var(--s-9) var(--s-4);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.voice-form-top {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: var(--s-4); flex-wrap: wrap;
+  margin-bottom: var(--s-6);
+  padding-bottom: var(--s-4);
+  border-bottom: 1px solid var(--line);
+}
+.voice-form-titleblock { flex: 1; min-width: 0; }
+
+.voice-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--ink-2);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.voice-form-name {
+  display: block; width: 100%;
+  background: transparent; border: 0; outline: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(28px, 3.5vw, 40px);
+  line-height: 1; letter-spacing: -.03em;
+  color: var(--ink-0);
+  padding: 0; margin: 0;
+  border-bottom: 2px dashed var(--line);
+  padding-bottom: 6px;
+  transition: border-color 140ms;
+}
+.voice-form-name:focus { border-bottom-color: var(--ink-0); }
+.voice-form-name::placeholder { color: var(--ink-3); }
+
+.voice-form-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+.vbtn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-display);
+  font-weight: 600; font-size: 13px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  color: var(--ink-0);
+  border-radius: 6px;
+  padding: 7px 12px; cursor: pointer;
+  transition: background 140ms, border-color 140ms, transform 140ms;
+}
+.vbtn:hover { background: var(--bg-2); border-color: var(--line-strong); }
+.vbtn--ghost { background: transparent; border-color: var(--line); color: var(--ink-1); }
+.vbtn--ghost:hover { color: var(--ink-0); border-color: var(--ink-0); }
+.vbtn--primary {
+  background: var(--ink-0); color: var(--bg-0); border-color: var(--ink-0);
+}
+.vbtn--primary:hover { background: var(--draft); border-color: var(--draft); }
+.vbtn--primary.disabled,
+.vbtn--primary[disabled] {
+  background: var(--bg-2); color: var(--ink-3); border-color: var(--line);
+  cursor: not-allowed;
+}
+.vbtn--danger {
+  background: transparent; color: var(--draft); border-color: var(--draft);
+}
+.vbtn--danger:hover { background: var(--draft); color: var(--bg-0); }
+.vbtn .kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: rgba(255,255,255,0.18);
+  padding: 1px 5px; border-radius: 3px;
+  margin-left: 4px;
+}
+.vbtn--primary .kbd { background: rgba(255,255,255,0.2); color: var(--bg-0); }
+
+/* ─── Form grid ─────────────────────────────────────────── */
+.voice-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-5);
+}
+
+.voice-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.voice-field.full { grid-column: 1 / -1; }
+
+.voice-field-label {
+  font-family: var(--font-mono);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--ink-1);
+  font-weight: 600;
+}
+.voice-field-help {
+  font-family: var(--font-mono);
+  font-size: 10px; color: var(--ink-3);
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+.voice-field-input { display: flex; flex-direction: column; }
+.voice-field-input textarea {
+  width: 100%; resize: vertical;
+  background: var(--bg-inset);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: var(--font-display);
+  font-size: 14px; line-height: 1.5;
+  color: var(--ink-0);
+  outline: 0;
+  transition: border-color 140ms, box-shadow 140ms;
+}
+.voice-field-input textarea:focus {
+  border-color: var(--ink-0);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.voice-rules {
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  line-height: 1.55 !important;
+}
+
+/* ─── Chip input (banned_words, required_elements) ─────── */
+.chip-input {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  align-items: center;
+  background: var(--bg-inset);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  min-height: 40px;
+  cursor: text;
+}
+.chip-input:focus-within {
+  border-color: var(--ink-0);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.chip-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--draft-soft); color: var(--draft);
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 3px;
+  text-decoration: line-through;
+  text-decoration-color: var(--draft);
+}
+.voice-field:has(.voice-field-label:not(:empty)) ~ .voice-field .chip-tag { /* no-op safety rule */ }
+/* required_elements field — green chips, no strikethrough */
+.voice-field:nth-child(8) .chip-tag,
+.voice-field.required-style .chip-tag {
+  background: var(--live-soft); color: var(--live);
+  text-decoration: none;
+}
+.chip-tag-x {
+  background: transparent; border: 0; cursor: pointer;
+  color: inherit;
+  font-size: 13px; line-height: 1;
+  padding: 0 2px;
+  opacity: .6;
+}
+.chip-tag-x:hover { opacity: 1; }
+.chip-tag-input {
+  flex: 1; min-width: 100px;
+  background: transparent; border: 0; outline: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-0);
+  padding: 4px 6px;
+}
+.chip-tag-input::placeholder { color: var(--ink-3); }
+
+/* ─── Example list (opening / closing) ─────────────────── */
+.example-list { display: flex; flex-direction: column; gap: 8px; }
+.example-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 28px;
+  gap: 8px;
+  align-items: start;
+}
+.example-n {
+  font-family: var(--font-mono);
+  font-size: 10px; color: var(--ink-3);
+  text-align: center;
+  padding-top: 12px;
+}
+.example-row textarea {
+  width: 100%;
+  background: var(--bg-inset);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px; line-height: 1.45;
+  color: var(--ink-0);
+  outline: 0;
+  border-left: 2px solid var(--accent);
+  transition: border-color 140ms;
+}
+.example-row textarea:focus { border-color: var(--ink-0); }
+.example-remove {
+  width: 24px; height: 24px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--ink-2);
+  font-size: 14px;
+  margin-top: 6px;
+  transition: background 140ms, color 140ms, border-color 140ms;
+}
+.example-remove:hover {
+  background: var(--draft); color: var(--bg-0); border-color: var(--draft);
+}
+.example-add {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--ink-1);
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: border-color 140ms, color 140ms;
+}
+.example-add:hover { border-color: var(--ink-0); color: var(--ink-0); }
+
+/* ─── Category chips ─────────────────────────────────── */
+.voice-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.voice-chip {
+  font-family: var(--font-mono);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  background: var(--bg-inset);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 140ms;
+}
+.voice-chip:hover { border-color: var(--ink-0); color: var(--ink-0); }
+.voice-chip.on {
+  background: var(--ink-0); color: var(--bg-0); border-color: var(--ink-0);
+}
+
+/* ─── Toggle (is_default) ──────────────────────────────── */
+.voice-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-1);
+  cursor: pointer;
+}
+.voice-toggle input[type="checkbox"] {
+  width: 16px; height: 16px;
+  accent-color: var(--accent);
+}
+
+/* ─── Toast (re-uses Write.tsx pattern) ────────────────── */
+.toast {
+  position: fixed;
+  bottom: 24px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink-0); color: var(--bg-0);
+  font-family: var(--font-display);
+  font-size: 13px; font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  z-index: 100;
+  animation: toastIn 220ms cubic-bezier(.4,0,.2,1);
+}
+.toast.error {
+  background: var(--draft); color: white;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}

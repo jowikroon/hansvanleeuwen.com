@@ -1,0 +1,144 @@
+{
+  "name": "blog-sc-opportunities",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "blog" }, { "name": "seo" }, { "name": "search-console" }],
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "days", "daysInterval": 1, "triggerAtHour": 6 }] }
+      },
+      "id": "cron",
+      "name": "Daily 06:00 cron",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 320]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "blog-sc-opportunities-run",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson"
+      },
+      "id": "manual",
+      "name": "Manual webhook (force run)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 480],
+      "webhookId": "blog-sc-opportunities-run"
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://searchconsole.googleapis.com/webmasters/v3/sites/{{ encodeURIComponent('https://hansvanleeuwen.com/') }}/searchAnalytics/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"startDate\": \"{{ $now.minus({days: 28}).toISODate() }}\",\n  \"endDate\": \"{{ $now.toISODate() }}\",\n  \"dimensions\": [\"query\", \"page\"],\n  \"rowLimit\": 500\n}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "sc_fetch",
+      "name": "Search Console · queries+pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [440, 400],
+      "credentials": { "googleApi": { "name": "Google · Search Console" } }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Filter to the 'almost ranking' sweet spot — position 6..30, impressions >= 50,\n// CTR < 5% (so we have room to grow). Score by uplift potential.\nconst rows = $input.first().json.rows ?? [];\nconst CTR_BY_POS = { 1:0.27, 2:0.16, 3:0.10, 4:0.07, 5:0.05, 6:0.04, 7:0.035, 8:0.03, 9:0.027, 10:0.024 };\nconst targetCTR = (pos) => CTR_BY_POS[Math.max(1, Math.min(10, Math.round(pos)))] || 0.02;\n\nconst ops = [];\nfor (const r of rows) {\n  const pos = r.position;\n  const imp = r.impressions;\n  const ctr = r.ctr;\n  if (pos < 6 || pos > 30) continue;\n  if (imp < 50) continue;\n  if (ctr > 0.05) continue;\n  const targetPosition = Math.max(4, Math.round(pos - 8));\n  const targetCtrValue = targetCTR(targetPosition);\n  const upliftSessionsPerMonth = Math.round(imp * (targetCtrValue - ctr));\n  if (upliftSessionsPerMonth < 20) continue;\n  ops.push({\n    query: r.keys[0],\n    page_url: r.keys[1],\n    current_position: pos,\n    impressions: imp,\n    ctr,\n    target_position: targetPosition,\n    estimated_uplift_sessions: upliftSessionsPerMonth,\n    action: pos > 20 ? 'new' : 'refresh',\n  });\n}\n// Sort by uplift desc, top 20\nops.sort((a, b) => b.estimated_uplift_sessions - a.estimated_uplift_sessions);\nreturn ops.slice(0, 20).map(o => ({ json: o }));"
+      },
+      "id": "filter",
+      "name": "Filter to opportunities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 400]
+    },
+
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "hvl_blog_articles",
+        "where": {
+          "values": [
+            { "column": "slug", "value": "={{ ($json.page_url || '').replace('https://hansvanleeuwen.com/writing/', '').replace(/\\/.*$/, '') }}" }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "existing_post",
+      "name": "Find existing post (if any)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [840, 400],
+      "credentials": { "supabaseApi": { "name": "Supabase · pesfakewujjwkyybwaom" } },
+      "continueOnFail": true
+    },
+
+    {
+      "parameters": {
+        "model": "claude-haiku-4-5",
+        "operation": "messageModel",
+        "system": "You write 50-80 word SEO refresh briefs for Hans van Leeuwen, NL marketplace + AI ops specialist.\n\nGiven a Search Console opportunity, write a brief explaining WHAT to do — concrete, action-oriented, voice-matching. Output ONE compact paragraph. No preface. No quotes around the response. Mention:\n- The query + current position\n- Whether to refresh existing post or create new\n- ONE specific angle/section to add\n- Expected uplift in sessions/month\n\nDon't say \"consider\". Say what to do.",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=Query: {{ $('filter').item.json.query }}\nCurrent position: #{{ $('filter').item.json.current_position }}\nImpressions (28d): {{ $('filter').item.json.impressions }}\nCTR: {{ ($('filter').item.json.ctr * 100).toFixed(1) }}%\nUplift potential: +{{ $('filter').item.json.estimated_uplift_sessions }} sessions/month\nAction: {{ $('filter').item.json.action }}\nExisting post: {{ $json.title || 'none' }} (slug: {{ $json.slug || 'n/a' }})\n\nWrite the brief."
+            }
+          ]
+        },
+        "options": { "maxTokens": 400 }
+      },
+      "id": "brief",
+      "name": "Claude · write brief",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [1040, 400],
+      "credentials": { "anthropicApi": { "name": "Anthropic · Claude" } }
+    },
+
+    {
+      "parameters": {
+        "operation": "upsert",
+        "table": "hvl_seo_opportunities",
+        "upsertColumn": "query",
+        "fieldsUi": {
+          "fieldValues": "={\n  \"query\": $('filter').item.json.query,\n  \"page_url\": $('filter').item.json.page_url,\n  \"current_position\": $('filter').item.json.current_position,\n  \"impressions\": $('filter').item.json.impressions,\n  \"ctr\": $('filter').item.json.ctr,\n  \"target_position\": $('filter').item.json.target_position,\n  \"estimated_uplift_sessions\": $('filter').item.json.estimated_uplift_sessions,\n  \"action\": $('filter').item.json.action,\n  \"target_post_slug\": $('existing_post').item.json.slug || null,\n  \"target_post_id\": $('existing_post').item.json.id || null,\n  \"brief\": ($json.message || $json.text || '').trim(),\n  \"refreshed_at\": new Date().toISOString()\n}"
+        }
+      },
+      "id": "upsert",
+      "name": "Upsert hvl_seo_opportunities",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1240, 400],
+      "credentials": { "supabaseApi": { "name": "Supabase · pesfakewujjwkyybwaom" } }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Return the top 5 written to the table as the response (for the manual webhook).\nconst items = $items('upsert');\nreturn [{ json: { written: items.length, top_5: items.slice(0, 5).map(i => ({ query: i.json.query, position: i.json.current_position, uplift: i.json.estimated_uplift_sessions })) } }];"
+      },
+      "id": "shape",
+      "name": "Response shape",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 400]
+    }
+  ],
+
+  "connections": {
+    "Daily 06:00 cron": { "main": [[{ "node": "Search Console · queries+pages", "type": "main", "index": 0 }]] },
+    "Manual webhook (force run)": { "main": [[{ "node": "Search Console · queries+pages", "type": "main", "index": 0 }]] },
+    "Search Console · queries+pages": { "main": [[{ "node": "Filter to opportunities", "type": "main", "index": 0 }]] },
+    "Filter to opportunities": { "main": [[{ "node": "Find existing post (if any)", "type": "main", "index": 0 }]] },
+    "Find existing post (if any)": { "main": [[{ "node": "Claude · write brief", "type": "main", "index": 0 }]] },
+    "Claude · write brief": { "main": [[{ "node": "Upsert hvl_seo_opportunities", "type": "main", "index": 0 }]] },
+    "Upsert hvl_seo_opportunities": { "main": [[{ "node": "Response shape", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "name": "blog-youtube-topics",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "blog" }, { "name": "youtube" }],
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "blog-youtube-topics",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson"
+      },
+      "id": "trigger",
+      "name": "Webhook · POST /webhook/blog-youtube-topics",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 320],
+      "webhookId": "blog-youtube-topics"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst transcript = (body.transcript_text ?? '').toString();\nif (!transcript || transcript.length < 100) {\n  // Degenerate fallback so the orchestrator still completes.\n  return [{\n    json: {\n      topics: ['untitled topic'],\n      novelty_score: 0,\n      suggested_category: 'tech',\n      image_prompt: 'editorial line art, warm cream and amber accent',\n      beats: [\n        { title: 'Hook' },\n        { title: 'Problem' },\n        { title: 'Insight' },\n        { title: 'Tradeoffs' },\n      ],\n      pull_quote_candidates: [],\n    },\n  }];\n}\nreturn [{ json: { transcript_text: transcript, video_id: body.video_id } }];"
+      },
+      "id": "parse",
+      "name": "Parse / degenerate guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 320]
+    },
+
+    {
+      "parameters": {
+        "model": "claude-haiku-4-5",
+        "operation": "messageModel",
+        "system": "You extract structured topic info from blog source transcripts.\n\nReturn ONLY valid JSON matching this shape:\n{\n  \"topics\": string[],            // 5-8 short topic phrases, ordered by salience\n  \"novelty_score\": number,       // 0-1, how original is the take?\n  \"suggested_category\": string,  // one of: tech, professional, personal, marketplace, ai\n  \"image_prompt\": string,        // a single concrete editorial image idea (max 80 chars)\n  \"beats\": Array<{title: string, summary?: string}>,  // 4-6 structural beats: problem → state → solution → tradeoffs is the default arc\n  \"pull_quote_candidates\": string[]  // 2-4 quotable sentences from the source\n}\n\nNo prose. No code fences. Just the JSON object.",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=Transcript:\n\n{{ $json.transcript_text.slice(0, 12000) }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 1500,
+          "responseFormat": { "type": "json_object" }
+        }
+      },
+      "id": "claude",
+      "name": "Claude Haiku · extract topics + beats",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [640, 320],
+      "credentials": {
+        "anthropicApi": { "name": "Anthropic · Claude" }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude's JSON response. If the model returns invalid JSON, fall\n// back to a safe stub so the orchestrator can still proceed.\nlet text = $input.first().json.message ?? $input.first().json.text ?? $input.first().json.content ?? '';\ntext = text.trim();\n// Sometimes models wrap JSON in markdown fences despite instructions.\ntext = text.replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nlet parsed;\ntry {\n  parsed = JSON.parse(text);\n} catch (_e) {\n  parsed = {\n    topics: ['untitled topic'],\n    novelty_score: 0,\n    suggested_category: 'tech',\n    image_prompt: 'editorial line art, warm cream and amber accent',\n    beats: [{ title: 'Hook' }, { title: 'Problem' }, { title: 'Insight' }, { title: 'Tradeoffs' }],\n    pull_quote_candidates: [],\n  };\n}\nreturn [{ json: parsed }];"
+      },
+      "id": "shape",
+      "name": "Parse Claude JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 320]
+    }
+  ],
+
+  "connections": {
+    "Webhook · POST /webhook/blog-youtube-topics": {
+      "main": [[{ "node": "Parse / degenerate guard", "type": "main", "index": 0 }]]
+    },
+    "Parse / degenerate guard": {
+      "main": [[{ "node": "Claude Haiku · extract topics + beats", "type": "main", "index": 0 }]]
+    },
+    "Claude Haiku · extract topics + beats": {
+      "main": [[{ "node": "Parse Claude JSON", "type": "main", "index": 0 }]]
+    }
+  }
+}

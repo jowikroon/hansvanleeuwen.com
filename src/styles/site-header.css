@@ -1,0 +1,157 @@
+/* =========================================================
+   Site header — persistent top nav.
+   Lives in RootLayout and stays mounted across all route changes.
+   Token-driven so it themes correctly in light + dark.
+   ========================================================= */
+
+.site-header {
+  display: flex; align-items: center; gap: var(--s-5, 20px);
+  padding: 12px var(--s-7, 32px);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-0);
+  position: sticky; top: 0; z-index: 50;
+  backdrop-filter: blur(8px);
+  font-family: var(--font-display, "Bricolage Grotesque", sans-serif);
+}
+
+.site-header-brand {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+  transition: opacity 140ms;
+}
+.site-header-brand:hover { opacity: 0.85; }
+
+.site-header-logo {
+  width: 28px; height: 28px;
+  object-fit: contain;
+  /* The PNG is black-on-transparent. Tint via filter for dark theme. */
+  filter: none;
+  transition: filter 220ms;
+}
+[data-theme="dark"] .site-header-logo {
+  filter: invert(1) brightness(1.15);
+}
+
+.site-header-brand-word {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--ink-0);
+}
+
+.site-header-nav {
+  display: flex; align-items: center; gap: 2px;
+  margin-left: var(--s-4, 16px);
+}
+.site-header-nav a,
+.site-header-nav span.current {
+  padding: 6px 11px;
+  font-size: 13px;
+  color: var(--ink-1);
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background 140ms, color 140ms;
+  position: relative;
+}
+.site-header-nav a:hover {
+  background: var(--bg-2);
+  color: var(--ink-0);
+}
+.site-header-nav .current {
+  color: var(--ink-0);
+  font-weight: 600;
+}
+.site-header-nav .current::after {
+  content: "";
+  display: block;
+  height: 2px;
+  background: var(--accent);
+  margin-top: 4px;
+  margin-bottom: -8px;
+  border-radius: 2px;
+}
+
+.site-header-end {
+  margin-left: auto;
+  display: flex; align-items: center; gap: var(--s-3, 12px);
+  flex-shrink: 0;
+}
+
+.site-icon-btn {
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  border-radius: 4px;
+  color: var(--ink-1);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: background 140ms, color 140ms;
+}
+.site-icon-btn:hover {
+  background: var(--bg-2);
+  color: var(--ink-0);
+}
+
+.site-lang-toggle {
+  display: inline-flex;
+  font-family: var(--font-mono, "IBM Plex Mono", monospace);
+  font-size: 11px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.site-lang-toggle button {
+  padding: 5px 9px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--ink-2);
+  transition: background 140ms, color 140ms;
+}
+.site-lang-toggle button.active {
+  background: var(--ink-0);
+  color: var(--bg-0);
+}
+.site-lang-toggle button:hover:not(.active) {
+  background: var(--bg-2);
+  color: var(--ink-0);
+}
+
+.site-profile-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 100px;
+  font-size: 12px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--ink-0);
+  transition: background 140ms;
+}
+.site-profile-chip:hover { background: var(--bg-2); }
+.site-profile-chip .avatar {
+  width: 22px; height: 22px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--font-mono, "IBM Plex Mono", monospace);
+  font-weight: 600;
+  font-size: 10px;
+}
+
+/* Layout outlet — page content sits below the sticky header */
+.site-main {
+  min-height: calc(100vh - 56px);
+}
+
+/* Mobile collapse — minimal pass; full mobile is Phase F polish */
+@media (max-width: 720px) {
+  .site-header { padding: 10px 16px; gap: 12px; flex-wrap: wrap; }
+  .site-header-brand-word { display: none; }
+  .site-header-nav { order: 3; margin-left: 0; flex-basis: 100%; overflow-x: auto; }
+  .site-header-end { gap: 8px; }
+  .site-profile-chip span:not(.avatar) { display: none; }
+}

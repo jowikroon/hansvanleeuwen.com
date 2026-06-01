@@ -12,8 +12,9 @@ import BlogManager from "@/pages/BlogManager";
 import NotFound from "@/pages/NotFound";
 import MarcelPage from "@/pages/MarcelPage";
 
-const SeoCMS = lazy(() => import("@/pages/SeoCMS"));
+// const SeoCMS = lazy(() => import("@/pages/SeoCMS")); // file missing on main, route disabled
 const Write = lazy(() => import("@/pages/Write"));
+const VoicePage = lazy(() => import("@/pages/VoicePage"));
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -29,7 +30,10 @@ const AnimatedRoutes = () => {
         <Route path="/portal" element={<PageTransition><Portal /></PageTransition>} />
         <Route path="/portal/blog" element={<PageTransition><BlogManager /></PageTransition>} />
         <Route path="/portal/write" element={<Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#0a0a0a]"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" /></div>}><PageTransition><Write /></PageTransition></Suspense>} />
-        <Route path="/seo-cms" element={<Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#0a0a0a]"><div className="h-6 w-6 animate-spin rounded-full border-2 border-teal-400 border-t-transparent" /></div>}><PageTransition><SeoCMS /></PageTransition></Suspense>} />
+        <Route path="/write" element={<Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#0a0a0a]"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" /></div>}><PageTransition><Write /></PageTransition></Suspense>} />
+        <Route path="/blog-cms" element={<Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#0a0a0a]"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" /></div>}><PageTransition><Write /></PageTransition></Suspense>} />
+        <Route path="/voice" element={<Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#0a0a0a]"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" /></div>}><PageTransition><VoicePage /></PageTransition></Suspense>} />
+        {/* <Route path="/seo-cms"> disabled — SeoCMS file missing on main */}
         <Route path="/marcel" element={<MarcelPage />} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>

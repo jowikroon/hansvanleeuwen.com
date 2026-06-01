@@ -1,0 +1,82 @@
+{
+  "name": "blog-voice-analyze",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "blog" }, { "name": "voice" }],
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "blog-voice-analyze",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+              { "name": "Access-Control-Allow-Headers", "value": "content-type" }
+            ]
+          }
+        }
+      },
+      "id": "trigger",
+      "name": "Webhook · POST /webhook/blog-voice-analyze",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 320],
+      "webhookId": "blog-voice-analyze"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Accept either { sources: [{name, kind, text}] } or { text: '...' }.\n// Truncate any single source to ~12k chars and the total to ~30k chars to\n// keep the prompt within Sonnet's budget. The analyzer is more useful with\n// more sources than longer ones — we cap aggressively.\nconst body = $input.first().json.body ?? $input.first().json;\nlet sources = Array.isArray(body.sources) ? body.sources : null;\nif (!sources && body.text) sources = [{ name: 'inline', kind: 'txt', text: body.text }];\nif (!sources || sources.length === 0) throw new Error('no_sources');\nsources = sources.map((s, i) => ({\n  index: i + 1,\n  name: (s.name || 'source ' + (i + 1)).toString().slice(0, 80),\n  kind: s.kind || 'txt',\n  text: (s.text || '').toString().slice(0, 12000),\n}));\nlet total = 0;\nconst trimmed = [];\nfor (const s of sources) {\n  if (total + s.text.length > 30000) {\n    const room = Math.max(0, 30000 - total);\n    if (room > 1500) trimmed.push({ ...s, text: s.text.slice(0, room) });\n    break;\n  }\n  trimmed.push(s);\n  total += s.text.length;\n}\nreturn [{ json: { sources: trimmed, total_chars: total, hint_category: body.hint_category ?? null, hint_language: body.hint_language ?? null } }];"
+      },
+      "id": "parse",
+      "name": "Parse + cap sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 320]
+    },
+
+    {
+      "parameters": {
+        "model": "claude-sonnet-4-5",
+        "operation": "messageModel",
+        "system": "You extract a 'voice template' from one or more writing samples by the same author.\n\nReturn ONLY valid JSON matching this exact shape (no markdown fences, no prose):\n\n{\n  \"name\": string,                         // suggested short name, e.g. \"Technical Deep Dive\"\n  \"category\": \"tech\"|\"professional\"|\"personal\"|\"marketplace\"|\"ai\",\n  \"tone\": string,                          // comma-separated personality phrase\n  \"perspective\": string,                   // where the writer stands\n  \"target_audience\": string[],             // 1-4 specific audience descriptors\n  \"writing_style\": string,                 // long prescriptive paragraph\n  \"banned_words\": string[],                // words / phrases this author avoids (infer from absence + tone)\n  \"required_elements\": string[],           // things every piece contains (e.g. \"numbered list >= 4\", \"pull-quote\", \"dated observation\")\n  \"content_rules\": string,                 // multi-line rule sheet, free-form, specific\n  \"opening_examples\": string[],            // 2-4 example openers, taken verbatim or near-verbatim from the source\n  \"closing_examples\": string[],            // 2-4 example closers\n  \"calibration\": string,                   // ONE single sentence that captures the entire voice — a north-star line for AI\n  \"opening_rotation\": [                    // ordered paragraph-starter phrases by frequency\n    {\"phrase\": string, \"use\": string}\n  ],\n  \"signature_phrases\": [                   // language fingerprints — phrases that recur and feel unique to this voice\n    {\"phrase\": string, \"use\": string}\n  ],\n  \"strengths\": string[],                   // 3-6 things this voice does well\n  \"watch_outs\": string[],                  // 2-5 places this voice slips\n  \"tone_per_section\": [                    // 5 rows: intro / theory|context / method|approach / results|insight / discussion|conclusion\n    {\"section\": string, \"tone\": string, \"characteristic\": string}\n  ],\n  \"unique_markers\": [                      // 2-4 things that make this unmistakably human, not AI\n    {\"name\": string, \"detail\": string}\n  ],\n  \"confidence\": {                          // 0..1 per field; reflects how confidently you could extract it\n    \"name\": number, \"category\": number, \"tone\": number, \"perspective\": number,\n    \"target_audience\": number, \"writing_style\": number, \"banned_words\": number,\n    \"required_elements\": number, \"content_rules\": number, \"opening_examples\": number,\n    \"closing_examples\": number, \"calibration\": number, \"opening_rotation\": number,\n    \"signature_phrases\": number, \"strengths\": number, \"watch_outs\": number,\n    \"tone_per_section\": number, \"unique_markers\": number\n  },\n  \"gaps\": string[],                        // field names where confidence < 0.6 — the user must fill these manually\n  \"overall_completeness\": number,          // 0..1 — rough how-complete-is-the-voice score\n  \"detected_language\": \"nl\"|\"en\"|\"other\",\n  \"word_count_analyzed\": number\n}\n\nRules:\n- Quote opening/closing examples and signature phrases verbatim where possible. Trim only.\n- Calibration: ONE sentence. Match the voice exactly. This is the most important field.\n- If a field can't be inferred confidently, set its confidence below 0.6 and list it in gaps. Don't invent.\n- For banned_words, infer from the writing's absences + tone (e.g. a precise technical voice would forbid 'simple', 'easy', 'leverage').\n- Match category to the dominant subject matter of the samples.",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=Hint category: {{ $json.hint_category ?? 'unknown' }}\nHint language: {{ $json.hint_language ?? 'unknown' }}\nSources ({{ $json.sources.length }}):\n\n{{ $json.sources.map(s => '— SOURCE ' + s.index + ' · ' + s.name + ' (' + s.kind + ') —\\n' + s.text).join('\\n\\n') }}\n\nExtract the voice template. Reply with the JSON object only."
+            }
+          ]
+        },
+        "options": { "maxTokens": 4000, "responseFormat": { "type": "json_object" } }
+      },
+      "id": "claude",
+      "name": "Claude Sonnet · extract voice",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [640, 320],
+      "credentials": { "anthropicApi": { "name": "Anthropic · Claude" } }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude's JSON. Add safety nets: if the model returned partial JSON\n// or wrapped it in markdown fences, recover gracefully.\nlet text = $input.first().json.message ?? $input.first().json.text ?? $input.first().json.content ?? '';\ntext = text.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nlet v;\ntry { v = JSON.parse(text); } catch (_e) {\n  return [{ json: { error: 'parse_failed', raw: text.slice(0, 2000) } }];\n}\n// Compute overall_completeness if missing\nif (!v.overall_completeness && v.confidence) {\n  const vals = Object.values(v.confidence);\n  v.overall_completeness = vals.length ? vals.reduce((s, x) => s + x, 0) / vals.length : 0;\n}\n// Compute gaps if missing\nif (!Array.isArray(v.gaps) && v.confidence) {\n  v.gaps = Object.entries(v.confidence).filter(([_, c]) => c < 0.6).map(([k]) => k);\n}\n// Inject analyzed metadata from input\nv.word_count_analyzed = $('parse').first().json.total_chars / 5 | 0;  // approx words from chars\nreturn [{ json: v }];"
+      },
+      "id": "shape",
+      "name": "Parse + finalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 320]
+    }
+  ],
+
+  "connections": {
+    "Webhook · POST /webhook/blog-voice-analyze": { "main": [[{ "node": "Parse + cap sources", "type": "main", "index": 0 }]] },
+    "Parse + cap sources": { "main": [[{ "node": "Claude Sonnet · extract voice", "type": "main", "index": 0 }]] },
+    "Claude Sonnet · extract voice": { "main": [[{ "node": "Parse + finalize", "type": "main", "index": 0 }]] }
+  }
+}
