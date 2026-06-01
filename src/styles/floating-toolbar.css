@@ -1,0 +1,78 @@
+/* =========================================================
+   Floating selection toolbar
+   Appears above any text selection inside the EN or NL editor.
+   Ported from Write.html .float-tools (lines 4055-4115) and
+   given absolute positioning so it follows the selection.
+   ========================================================= */
+
+.float-tools {
+  display: flex; align-items: center; gap: 2px;
+  background: var(--ink-0);
+  color: var(--bg-0);
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-family: var(--font-display);
+  box-shadow: 0 6px 24px rgba(0,0,0,.25);
+  animation: floatToolsIn 140ms cubic-bezier(.4,0,.2,1);
+  white-space: nowrap;
+  user-select: none;
+}
+@keyframes floatToolsIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.float-tools::after {
+  /* downward-pointing arrow tip below toolbar */
+  content: "";
+  position: absolute;
+  left: 50%; bottom: -5px;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--ink-0);
+}
+
+.float-tools button {
+  background: transparent;
+  border: 0;
+  color: var(--bg-0);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 140ms;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.float-tools button:hover { background: rgba(255,255,255,.12); }
+.float-tools button:disabled {
+  opacity: .55;
+  cursor: wait;
+  background: rgba(255,255,255,.06);
+}
+.float-tools button.accent {
+  color: var(--accent);
+}
+.float-tools button.accent:hover {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.float-tools .sep {
+  width: 1px;
+  height: 14px;
+  background: rgba(255,255,255,.18);
+  margin: 0 2px;
+}
+.float-tools-hint {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  opacity: .7;
+  margin-left: 2px;
+}

@@ -1,0 +1,142 @@
+{
+  "name": "blog-voice-extract",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "blog" }, { "name": "voice" }],
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "blog-voice-extract",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {
+          "binaryData": true,
+          "binaryPropertyName": "file",
+          "rawBody": true,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+              { "name": "Access-Control-Allow-Headers", "value": "content-type" }
+            ]
+          }
+        }
+      },
+      "id": "trigger",
+      "name": "Webhook · POST /webhook/blog-voice-extract",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 320],
+      "webhookId": "blog-voice-extract"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Accept either multipart file upload OR a JSON body with { url }.\n// Multipart drops the file into binary.file; JSON body lands as $json.body.\nconst hasBinary = !!$input.first().binary?.file;\nconst body = $input.first().json.body ?? $input.first().json;\nif (hasBinary) {\n  const meta = $input.first().binary.file;\n  const lower = (meta.fileName || '').toLowerCase();\n  let kind = 'txt';\n  if (lower.endsWith('.pdf')) kind = 'pdf';\n  else if (lower.endsWith('.docx') || lower.endsWith('.doc')) kind = 'docx';\n  else if (lower.endsWith('.md')) kind = 'md';\n  return [{ json: { mode: 'binary', kind, name: meta.fileName, size: meta.fileSize }, binary: $input.first().binary }];\n}\nconst url = (body.url ?? '').toString().trim();\nif (!url) throw new Error('no_file_or_url');\nlet kind = 'url';\nif (/docs\\.google\\.com\\/document/.test(url)) kind = 'gdoc';\nreturn [{ json: { mode: 'url', kind, url, name: url } }];"
+      },
+      "id": "parse",
+      "name": "Parse input + detect kind",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 320]
+    },
+
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            { "conditions": { "string": [{ "value1": "={{ $json.kind }}", "value2": "pdf" }] }, "outputKey": "pdf" },
+            { "conditions": { "string": [{ "value1": "={{ $json.kind }}", "value2": "docx" }] }, "outputKey": "docx" },
+            { "conditions": { "string": [{ "value1": "={{ $json.kind }}", "value2": "gdoc" }] }, "outputKey": "gdoc" },
+            { "conditions": { "string": [{ "value1": "={{ $json.kind }}", "value2": "url" }] }, "outputKey": "url" }
+          ]
+        },
+        "fallbackOutput": "txt"
+      },
+      "id": "route",
+      "name": "Route by kind",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [640, 320]
+    },
+
+    {
+      "parameters": {
+        "operation": "Extract Text from PDF",
+        "binaryPropertyName": "file",
+        "options": {}
+      },
+      "id": "pdfExtract",
+      "name": "PDF → text (community node OR replace with Code+pdf-parse)",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [840, 200]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// DOCX path: use a Code node with mammoth via dynamic import, OR run via\n// LibreOffice headless on the n8n host. Below is the mammoth-shaped stub.\nconst { default: mammoth } = await import('mammoth');\nconst buffer = Buffer.from($input.first().binary.file.data, 'base64');\nconst result = await mammoth.extractRawText({ buffer });\nreturn [{ json: { text: result.value } }];"
+      },
+      "id": "docxExtract",
+      "name": "DOCX → text (mammoth)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 320]
+    },
+
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ ($json.url || '').replace(/\\/edit.*$/, '/export?format=txt') }}",
+        "options": { "timeout": 20000 }
+      },
+      "id": "gdocFetch",
+      "name": "Google Docs → txt export",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [840, 440]
+    },
+
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "options": { "timeout": 20000, "response": { "response": { "responseFormat": "text" } } }
+      },
+      "id": "urlFetch",
+      "name": "URL → raw HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [840, 560]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Strip HTML to plain text + count words + crude language detection.\nlet raw = $input.first().json.body ?? $input.first().json.text ?? $input.first().json.data ?? '';\nif (typeof raw !== 'string') raw = JSON.stringify(raw);\n// Strip script/style + tags\nconst stripped = raw\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;/g, ' ')\n  .replace(/&amp;/g, '&')\n  .replace(/\\s+/g, ' ')\n  .trim();\nconst words = stripped.split(/\\s+/).filter(Boolean);\n// Naive nl/en detector\nconst nlMarkers = ['de ','het ','een ','is ','zijn ','niet ','maar ','voor ','wat ','dat ','onderzoek','huidig'];\nconst lower = stripped.toLowerCase().slice(0, 4000);\nconst nlHits = nlMarkers.filter(m => lower.includes(m)).length;\nconst lang = nlHits >= 3 ? 'nl' : 'en';\nreturn [{ json: {\n  text: stripped,\n  word_count: words.length,\n  detected_language: lang,\n  source_kind: ($('parse').first().json.kind),\n  source_name: ($('parse').first().json.name),\n} }];"
+      },
+      "id": "shape",
+      "name": "Shape response (strip HTML, count, detect lang)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 320]
+    }
+  ],
+
+  "connections": {
+    "Webhook · POST /webhook/blog-voice-extract": { "main": [[{ "node": "Parse input + detect kind", "type": "main", "index": 0 }]] },
+    "Parse input + detect kind": { "main": [[{ "node": "Route by kind", "type": "main", "index": 0 }]] },
+    "Route by kind": {
+      "main": [
+        [{ "node": "PDF → text (community node OR replace with Code+pdf-parse)", "type": "main", "index": 0 }],
+        [{ "node": "DOCX → text (mammoth)", "type": "main", "index": 0 }],
+        [{ "node": "Google Docs → txt export", "type": "main", "index": 0 }],
+        [{ "node": "URL → raw HTML", "type": "main", "index": 0 }]
+      ]
+    },
+    "PDF → text (community node OR replace with Code+pdf-parse)": { "main": [[{ "node": "Shape response (strip HTML, count, detect lang)", "type": "main", "index": 0 }]] },
+    "DOCX → text (mammoth)": { "main": [[{ "node": "Shape response (strip HTML, count, detect lang)", "type": "main", "index": 0 }]] },
+    "Google Docs → txt export": { "main": [[{ "node": "Shape response (strip HTML, count, detect lang)", "type": "main", "index": 0 }]] },
+    "URL → raw HTML": { "main": [[{ "node": "Shape response (strip HTML, count, detect lang)", "type": "main", "index": 0 }]] }
+  }
+}

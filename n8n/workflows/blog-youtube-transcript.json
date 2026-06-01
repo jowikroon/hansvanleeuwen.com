@@ -1,0 +1,139 @@
+{
+  "name": "blog-youtube-transcript",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "blog" }, { "name": "youtube" }],
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "blog-youtube-transcript",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson"
+      },
+      "id": "trigger",
+      "name": "Webhook · POST /webhook/blog-youtube-transcript",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 320],
+      "webhookId": "blog-youtube-transcript"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Try YouTube's own captions via timedtext (free, no quota). Most videos\n// have at least auto-generated EN captions. If empty, the next branch falls\n// back to ytdl-core + OpenAI Whisper.\nconst body = $input.first().json.body ?? $input.first().json;\nconst videoId = body.video_id;\nconst url = body.url ?? `https://youtube.com/watch?v=${videoId}`;\nif (!videoId) throw new Error('missing_video_id');\nreturn [{ json: { video_id: videoId, url } }];"
+      },
+      "id": "parse",
+      "name": "Parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 320]
+    },
+
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://video.google.com/timedtext?v={{ $json.video_id }}&lang=en&fmt=json3",
+        "options": {
+          "timeout": 15000,
+          "response": { "response": { "neverError": true } }
+        }
+      },
+      "id": "yt_captions",
+      "name": "YouTube timedtext (free)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [640, 240],
+      "continueOnFail": true
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Try to parse the timedtext JSON. If empty or malformed, signal a fallback.\nconst resp = $input.first().json;\nlet events = [];\nif (typeof resp === 'object' && Array.isArray(resp.events)) {\n  events = resp.events;\n}\nif (events.length === 0) {\n  return [{ json: { needs_whisper: true, video_id: $('parse').first().json.video_id, url: $('parse').first().json.url } }];\n}\nconst segments = events\n  .filter((e) => Array.isArray(e.segs))\n  .map((e) => ({\n    start: (e.tStartMs ?? 0) / 1000,\n    duration: (e.dDurationMs ?? 0) / 1000,\n    text: e.segs.map((s) => s.utf8).join('').trim(),\n  }))\n  .filter((s) => s.text);\nconst text = segments.map((s) => s.text).join(' ').replace(/\\s+/g, ' ').trim();\nreturn [{\n  json: {\n    transcript_text: text,\n    transcript_segments: segments,\n    transcript_source: 'youtube-captions',\n    cost_usd: 0,\n  },\n}];"
+      },
+      "id": "parse_captions",
+      "name": "Parse captions OR signal fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 240]
+    },
+
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            { "value1": "={{ $json.needs_whisper === true }}", "value2": true }
+          ]
+        }
+      },
+      "id": "branch",
+      "name": "Captions found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1040, 240]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "whisper-1" },
+            { "name": "response_format", "value": "verbose_json" }
+          ]
+        },
+        "options": { "timeout": 240000 }
+      },
+      "id": "whisper",
+      "name": "Whisper fallback (TODO: feed audio)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1240, 400],
+      "credentials": {
+        "httpHeaderAuth": { "name": "OpenAI · Authorization Bearer" }
+      },
+      "continueOnFail": true,
+      "notes": "This node needs an audio file binary in the body. The proper implementation is to add a ytdl-core / yt-dlp Code node above it that downloads the audio into the binary slot named 'file'. Leaving as a stub — Hans, this is the only TODO in the orchestrator chain."
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Shape the Whisper response into the same envelope as the captions path.\nconst resp = $input.first().json;\nconst segments = (resp.segments ?? []).map((s) => ({\n  start: s.start,\n  duration: s.end - s.start,\n  text: s.text,\n}));\nreturn [{\n  json: {\n    transcript_text: resp.text ?? '',\n    transcript_segments: segments,\n    transcript_source: 'whisper',\n    cost_usd: ((resp.duration ?? 0) / 60) * 0.006,\n  },\n}];"
+      },
+      "id": "shape_whisper",
+      "name": "Shape Whisper response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 400]
+    }
+  ],
+
+  "connections": {
+    "Webhook · POST /webhook/blog-youtube-transcript": {
+      "main": [[{ "node": "Parse", "type": "main", "index": 0 }]]
+    },
+    "Parse": {
+      "main": [[{ "node": "YouTube timedtext (free)", "type": "main", "index": 0 }]]
+    },
+    "YouTube timedtext (free)": {
+      "main": [[{ "node": "Parse captions OR signal fallback", "type": "main", "index": 0 }]]
+    },
+    "Parse captions OR signal fallback": {
+      "main": [[{ "node": "Captions found?", "type": "main", "index": 0 }]]
+    },
+    "Captions found?": {
+      "main": [
+        [{ "node": "Whisper fallback (TODO: feed audio)", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Whisper fallback (TODO: feed audio)": {
+      "main": [[{ "node": "Shape Whisper response", "type": "main", "index": 0 }]]
+    }
+  }
+}

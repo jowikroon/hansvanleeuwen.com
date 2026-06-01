@@ -1,0 +1,78 @@
+{
+  "name": "blog-youtube-metadata",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "blog" }, { "name": "youtube" }],
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "blog-youtube-metadata",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+              { "name": "Access-Control-Allow-Headers", "value": "content-type" }
+            ]
+          }
+        }
+      },
+      "id": "trigger",
+      "name": "Webhook · POST /webhook/blog-youtube-metadata",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 320],
+      "webhookId": "blog-youtube-metadata"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst url = (body.url ?? '').toString().trim();\nlet videoId = body.video_id;\nif (!videoId) {\n  const m = url.match(/(?:youtube\\.com\\/watch\\?v=|youtu\\.be\\/|youtube\\.com\\/shorts\\/)([A-Za-z0-9_-]{6,})/);\n  if (!m) throw new Error('invalid_youtube_url');\n  videoId = m[1];\n}\nreturn [{ json: { url, video_id: videoId } }];"
+      },
+      "id": "parse",
+      "name": "Parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 320]
+    },
+
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://www.googleapis.com/youtube/v3/videos?id={{ $json.video_id }}&part=snippet,contentDetails,statistics&key={{ $env.YOUTUBE_API_KEY }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "yt_api",
+      "name": "YouTube Data API v3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [640, 320]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Convert ISO 8601 duration (PT24M18S) → seconds.\nfunction iso8601ToSec(s) {\n  const m = (s || '').match(/^PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?$/);\n  if (!m) return 0;\n  return (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0);\n}\nconst resp = $input.first().json;\nconst item = resp.items?.[0];\nif (!item) throw new Error('video_not_found');\nconst snippet = item.snippet ?? {};\nconst content = item.contentDetails ?? {};\nconst stats = item.statistics ?? {};\nreturn [{\n  json: {\n    video_id: item.id,\n    title: snippet.title,\n    channel: snippet.channelTitle,\n    duration_seconds: iso8601ToSec(content.duration),\n    thumbnail_url: snippet.thumbnails?.maxres?.url ?? snippet.thumbnails?.high?.url ?? snippet.thumbnails?.default?.url,\n    view_count: stats.viewCount ? parseInt(stats.viewCount, 10) : null,\n    published_at: snippet.publishedAt ?? null,\n  },\n}];"
+      },
+      "id": "shape",
+      "name": "Shape response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 320]
+    }
+  ],
+
+  "connections": {
+    "Webhook · POST /webhook/blog-youtube-metadata": {
+      "main": [[{ "node": "Parse", "type": "main", "index": 0 }]]
+    },
+    "Parse": {
+      "main": [[{ "node": "YouTube Data API v3", "type": "main", "index": 0 }]]
+    },
+    "YouTube Data API v3": {
+      "main": [[{ "node": "Shape response", "type": "main", "index": 0 }]]
+    }
+  }
+}

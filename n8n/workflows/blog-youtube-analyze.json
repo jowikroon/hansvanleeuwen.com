@@ -1,0 +1,420 @@
+{
+  "name": "blog-youtube-analyze",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": [
+    { "name": "blog" },
+    { "name": "youtube" },
+    { "name": "orchestrator" }
+  ],
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "blog-youtube-analyze",
+        "responseMode": "lastNode",
+        "responseData": "allEntries",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+              { "name": "Access-Control-Allow-Headers", "value": "content-type, accept" }
+            ]
+          }
+        }
+      },
+      "id": "trigger",
+      "name": "Webhook · POST /webhook/blog-youtube-analyze",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 320],
+      "webhookId": "blog-youtube-analyze"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Parse + validate input. Anything not a YouTube URL gets rejected here.\nconst body = $input.first().json.body ?? $input.first().json;\nconst url = (body.url ?? '').toString().trim();\nconst m = url.match(/(?:youtube\\.com\\/watch\\?v=|youtu\\.be\\/|youtube\\.com\\/shorts\\/)([A-Za-z0-9_-]{6,})/);\nif (!m) {\n  throw new Error('invalid_youtube_url');\n}\nreturn [{\n  json: {\n    url,\n    video_id: m[1],\n    voice_template_id: body.voice_template_id ?? null,\n    languages: Array.isArray(body.languages) && body.languages.length ? body.languages : ['en', 'nl'],\n    extras: Array.isArray(body.extras) ? body.extras : ['linkedin', 'seo'],\n    started_at: new Date().toISOString(),\n  },\n}];"
+      },
+      "id": "parse_input",
+      "name": "Parse input + extract video_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 320]
+    },
+
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "hvl_youtube_sources",
+        "where": {
+          "values": [
+            { "column": "video_id", "value": "={{ $json.video_id }}" }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "cache_lookup",
+      "name": "Cache lookup · hvl_youtube_sources",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [640, 320],
+      "credentials": {
+        "supabaseApi": { "name": "Supabase · pesfakewujjwkyybwaom" }
+      },
+      "continueOnFail": true
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// If cache hit AND fetched within last 24h, skip fetch_meta + transcript.\nconst row = $input.first().json;\nconst fresh = row && row.fetched_at && (Date.now() - new Date(row.fetched_at).getTime()) < 24 * 3600 * 1000;\nconst ctx = $('parse_input').first().json;\nreturn [{\n  json: {\n    ...ctx,\n    cache_hit: !!fresh,\n    cached_source_id: fresh ? row.id : null,\n    cached_meta: fresh ? {\n      title: row.title,\n      channel: row.channel,\n      duration_seconds: row.duration_seconds,\n      thumbnail_url: row.thumbnail_url,\n      published_at: row.published_at,\n    } : null,\n    cached_transcript: fresh ? {\n      transcript_text: row.transcript_text,\n      transcript_segments: row.transcript_segments,\n      transcript_source: row.transcript_source,\n    } : null,\n  },\n}];"
+      },
+      "id": "cache_branch",
+      "name": "Cache decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 320]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/blog-youtube-metadata",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"url\": $json.url,\n  \"video_id\": $json.video_id\n}",
+        "options": {
+          "timeout": 15000,
+          "redirect": { "redirect": { "followRedirects": true } }
+        }
+      },
+      "id": "step_1_fetch_meta",
+      "name": "Step 1 · fetch_meta (sub-workflow)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1080, 200],
+      "continueOnFail": false
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/blog-youtube-transcript",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"video_id\": $('cache_branch').first().json.video_id,\n  \"url\": $('cache_branch').first().json.url\n}",
+        "options": { "timeout": 180000 }
+      },
+      "id": "step_2_transcript",
+      "name": "Step 2 · transcript (sub-workflow)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1080, 360]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Persist the freshly-fetched meta + transcript to hvl_youtube_sources.\n// Skips if we're on a cache hit.\nconst ctx = $('cache_branch').first().json;\nif (ctx.cache_hit) {\n  return [{ json: { ...ctx, source_id: ctx.cached_source_id } }];\n}\nconst meta = $('step_1_fetch_meta').first().json;\nconst transcript = $('step_2_transcript').first().json;\nreturn [{\n  json: {\n    ...ctx,\n    meta: { ...meta },\n    transcript: { ...transcript },\n    upsert_payload: {\n      url: ctx.url,\n      video_id: ctx.video_id,\n      title: meta.title,\n      channel: meta.channel,\n      duration_seconds: meta.duration_seconds,\n      thumbnail_url: meta.thumbnail_url,\n      published_at: meta.published_at,\n      transcript_text: transcript.transcript_text,\n      transcript_segments: transcript.transcript_segments,\n      transcript_source: transcript.transcript_source,\n      cost_usd: (transcript.cost_usd ?? 0),\n      fetched_at: new Date().toISOString(),\n    },\n  },\n}];"
+      },
+      "id": "build_cache_payload",
+      "name": "Build cache upsert payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 320]
+    },
+
+    {
+      "parameters": {
+        "operation": "upsert",
+        "table": "hvl_youtube_sources",
+        "upsertColumn": "video_id",
+        "fieldsUi": { "fieldValues": "={{ $json.upsert_payload }}" }
+      },
+      "id": "cache_upsert",
+      "name": "Upsert hvl_youtube_sources",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1560, 320],
+      "credentials": {
+        "supabaseApi": { "name": "Supabase · pesfakewujjwkyybwaom" }
+      },
+      "continueOnFail": true
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/blog-youtube-topics",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"video_id\": $('build_cache_payload').first().json.video_id,\n  \"transcript_text\": $('build_cache_payload').first().json.transcript?.transcript_text ?? $('build_cache_payload').first().json.cached_transcript?.transcript_text\n}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "step_3_topics",
+      "name": "Step 3 · topics (sub-workflow)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1080, 520]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/blog-init",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"category\": ($('step_3_topics').first().json.suggested_category ?? 'tech')\n}",
+        "options": { "timeout": 20000 }
+      },
+      "id": "step_4_voice_match",
+      "name": "Step 4 · voice_match (reuse blog-init)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1320, 520]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/blog-ghost-write",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"topic\": $('step_3_topics').first().json.topics?.[0] ?? 'untitled topic',\n  \"category\": ($('step_3_topics').first().json.suggested_category ?? 'tech'),\n  \"voice_template_id\": $('build_cache_payload').first().json.voice_template_id,\n  \"target_words\": 1200,\n  \"language\": \"en\",\n  \"context\": {\n    \"transcript\": $('build_cache_payload').first().json.transcript?.transcript_text ?? $('build_cache_payload').first().json.cached_transcript?.transcript_text,\n    \"topics\": $('step_3_topics').first().json.topics,\n    \"beats\": $('step_3_topics').first().json.beats\n  }\n}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "step_6_draft_en",
+      "name": "Step 6 · draft_en (blog-ghost-write · en)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1560, 460]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/blog-ghost-write",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"topic\": $('step_3_topics').first().json.topics?.[0] ?? 'untitled topic',\n  \"category\": ($('step_3_topics').first().json.suggested_category ?? 'tech'),\n  \"voice_template_id\": $('build_cache_payload').first().json.voice_template_id,\n  \"target_words\": 1200,\n  \"language\": \"nl\",\n  \"context\": {\n    \"reference_en\": $('step_6_draft_en').first().json.content\n  }\n}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "step_7_draft_nl",
+      "name": "Step 7 · draft_nl (blog-ghost-write · nl)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1800, 460]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/blog-auto-seo",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"title\": $('step_6_draft_en').first().json.title,\n  \"content\": $('step_6_draft_en').first().json.content,\n  \"slug\": $('step_6_draft_en').first().json.suggested_slug\n}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "step_8a_seo",
+      "name": "Step 8a · auto-seo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2040, 380]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/blog-agent-review",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"title\": $('step_6_draft_en').first().json.title,\n  \"content\": $('step_6_draft_en').first().json.content,\n  \"category\": ($('step_3_topics').first().json.suggested_category ?? 'tech'),\n  \"voice_template_id\": $('build_cache_payload').first().json.voice_template_id\n}",
+        "options": { "timeout": 90000 }
+      },
+      "id": "step_8b_review",
+      "name": "Step 8b · agent-review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2040, 540]
+    },
+
+    {
+      "parameters": {
+        "model": "claude-haiku-4-5",
+        "operation": "messageModel",
+        "system": "Write a LinkedIn snippet for a blog post. Max 1300 chars. Hook-driven. Zero hashtags. Plain text, no emojis. Match the voice of the article. Reply with ONLY the snippet text.",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=Article title: {{ $('step_6_draft_en').first().json.title }}\nArticle excerpt: {{ $('step_6_draft_en').first().json.excerpt }}\nArticle body:\n{{ $('step_6_draft_en').first().json.content.slice(0, 2000) }}\n\nWrite the LinkedIn snippet."
+            }
+          ]
+        },
+        "options": { "maxTokens": 800 }
+      },
+      "id": "step_9a_linkedin_en",
+      "name": "Step 9a · linkedin_en (claude haiku)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [2280, 380],
+      "credentials": {
+        "anthropicApi": { "name": "Anthropic · Claude" }
+      }
+    },
+
+    {
+      "parameters": {
+        "model": "claude-haiku-4-5",
+        "operation": "messageModel",
+        "system": "Schrijf een LinkedIn-snippet voor een blog post in het Nederlands. Max 1300 tekens. Hook-driven. Geen hashtags. Pure tekst, geen emojis. Match de stem van het artikel. Antwoord met ALLEEN de snippet tekst.",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=Titel: {{ $('step_7_draft_nl').first().json.title }}\nExcerpt: {{ $('step_7_draft_nl').first().json.excerpt }}\nArtikel:\n{{ $('step_7_draft_nl').first().json.content.slice(0, 2000) }}\n\nSchrijf de LinkedIn snippet."
+            }
+          ]
+        },
+        "options": { "maxTokens": 800 }
+      },
+      "id": "step_9b_linkedin_nl",
+      "name": "Step 9b · linkedin_nl (claude haiku)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [2280, 540],
+      "credentials": {
+        "anthropicApi": { "name": "Anthropic · Claude" }
+      }
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/blog-header-image",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"prompt\": $('step_3_topics').first().json.image_prompt ?? $('step_6_draft_en').first().json.title,\n  \"style\": \"editorial\"\n}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "step_hero",
+      "name": "Step · hero image (parallel)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2280, 700],
+      "continueOnFail": true
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Assemble the final draft payload from all upstream steps.\nconst ctx = $('build_cache_payload').first().json;\nconst draftEn = $('step_6_draft_en').first().json;\nconst draftNl = $('step_7_draft_nl').first().json;\nconst seo = $('step_8a_seo').first().json;\nconst review = $('step_8b_review').first().json;\nconst liEn = $('step_9a_linkedin_en').first().json.message ?? $('step_9a_linkedin_en').first().json.text ?? '';\nconst liNl = $('step_9b_linkedin_nl').first().json.message ?? $('step_9b_linkedin_nl').first().json.text ?? '';\nconst hero = $('step_hero').first().json?.image_url ?? null;\nconst voiceFit = Math.round(\n  (review.dimensions?.find?.((d) => /voice|style|tone/i.test(d.name))?.score) ?? review.total_score ?? 0\n);\nconst readability = Math.round(\n  review.dimensions?.find?.((d) => /read|clarity|flow/i.test(d.name))?.score ?? 70\n);\nconst seoScore = Math.round(\n  review.dimensions?.find?.((d) => /seo|find|keyword/i.test(d.name))?.score ?? 75\n);\nconst sourceId = ctx.cache_hit ? ctx.cached_source_id : $('cache_upsert').first().json.id;\nreturn [{\n  json: {\n    title: draftEn.title,\n    slug: seo.canonical_url?.replace(/^\\/writing\\//, '') ?? draftEn.suggested_slug,\n    content: draftEn.content,\n    content_nl: draftNl.content,\n    excerpt: draftEn.excerpt,\n    excerpt_nl: draftNl.excerpt,\n    category: ($('step_3_topics').first().json.suggested_category ?? 'tech'),\n    tags: draftEn.suggested_tags ?? [],\n    status: 'draft',\n    voice_template_id: ctx.voice_template_id,\n    hero_image_url: hero,\n    meta_title: seo.meta_title,\n    meta_description: seo.meta_description,\n    source_youtube_id: sourceId,\n    // The remaining fields are returned in the response but not all are\n    // columns on hvl_blog_articles — they live in the assembled draft\n    // object the frontend receives.\n    _assembled: {\n      title_en: draftEn.title,\n      title_nl: draftNl.title,\n      content_en: draftEn.content,\n      content_nl: draftNl.content,\n      excerpt_en: draftEn.excerpt,\n      excerpt_nl: draftNl.excerpt,\n      slug: seo.canonical_url?.replace(/^\\/writing\\//, '') ?? draftEn.suggested_slug,\n      category: ($('step_3_topics').first().json.suggested_category ?? 'tech'),\n      tags: draftEn.suggested_tags ?? [],\n      voice_template_id: ctx.voice_template_id,\n      voice_fit: voiceFit,\n      seo_score: seoScore,\n      readability,\n      forbidden_terms_found: review.forbidden_terms_found ?? [],\n      linkedin_en: liEn,\n      linkedin_nl: liNl,\n      hero_image_url: hero,\n      word_count_en: draftEn.word_count ?? 0,\n      word_count_nl: draftNl.word_count ?? 0,\n      source_youtube_id: sourceId,\n    },\n  },\n}];"
+      },
+      "id": "assemble",
+      "name": "Assemble final draft payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2520, 460]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/blog-post-save",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={ \"title\": $json.title, \"slug\": $json.slug, \"content\": $json.content, \"content_nl\": $json.content_nl, \"excerpt\": $json.excerpt, \"category\": $json.category, \"tags\": $json.tags, \"status\": \"draft\", \"voice_template_id\": $json.voice_template_id, \"hero_image_url\": $json.hero_image_url, \"meta_title\": $json.meta_title, \"meta_description\": $json.meta_description }",
+        "options": { "timeout": 30000 }
+      },
+      "id": "step_10_save",
+      "name": "Step 10 · save (blog-post-save)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2760, 460]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Final shape: matches the AssembledDraft type the React modal expects,\n// plus the post_id from step 10. The frontend pulls .post_id and .draft.\nconst saved = $input.first().json;\nconst assembled = $('assemble').first().json._assembled;\nconst sourceId = $('assemble').first().json.source_youtube_id;\nreturn [{\n  json: {\n    type: 'done',\n    post_id: saved.id,\n    elapsed_ms: Date.now() - new Date($('parse_input').first().json.started_at).getTime(),\n    draft: {\n      ...assembled,\n      source_youtube_id: sourceId,\n    },\n  },\n}];"
+      },
+      "id": "final_response",
+      "name": "Final response shape",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3000, 460]
+    }
+  ],
+
+  "connections": {
+    "Webhook · POST /webhook/blog-youtube-analyze": {
+      "main": [[{ "node": "Parse input + extract video_id", "type": "main", "index": 0 }]]
+    },
+    "Parse input + extract video_id": {
+      "main": [[{ "node": "Cache lookup · hvl_youtube_sources", "type": "main", "index": 0 }]]
+    },
+    "Cache lookup · hvl_youtube_sources": {
+      "main": [[{ "node": "Cache decision", "type": "main", "index": 0 }]]
+    },
+    "Cache decision": {
+      "main": [[
+        { "node": "Step 1 · fetch_meta (sub-workflow)", "type": "main", "index": 0 },
+        { "node": "Step 2 · transcript (sub-workflow)", "type": "main", "index": 0 }
+      ]]
+    },
+    "Step 1 · fetch_meta (sub-workflow)": {
+      "main": [[{ "node": "Build cache upsert payload", "type": "main", "index": 0 }]]
+    },
+    "Step 2 · transcript (sub-workflow)": {
+      "main": [[{ "node": "Build cache upsert payload", "type": "main", "index": 0 }]]
+    },
+    "Build cache upsert payload": {
+      "main": [[{ "node": "Upsert hvl_youtube_sources", "type": "main", "index": 0 }]]
+    },
+    "Upsert hvl_youtube_sources": {
+      "main": [[{ "node": "Step 3 · topics (sub-workflow)", "type": "main", "index": 0 }]]
+    },
+    "Step 3 · topics (sub-workflow)": {
+      "main": [[
+        { "node": "Step 4 · voice_match (reuse blog-init)", "type": "main", "index": 0 },
+        { "node": "Step 6 · draft_en (blog-ghost-write · en)", "type": "main", "index": 0 }
+      ]]
+    },
+    "Step 4 · voice_match (reuse blog-init)": {
+      "main": [[{ "node": "Step 6 · draft_en (blog-ghost-write · en)", "type": "main", "index": 0 }]]
+    },
+    "Step 6 · draft_en (blog-ghost-write · en)": {
+      "main": [[{ "node": "Step 7 · draft_nl (blog-ghost-write · nl)", "type": "main", "index": 0 }]]
+    },
+    "Step 7 · draft_nl (blog-ghost-write · nl)": {
+      "main": [[
+        { "node": "Step 8a · auto-seo", "type": "main", "index": 0 },
+        { "node": "Step 8b · agent-review", "type": "main", "index": 0 },
+        { "node": "Step · hero image (parallel)", "type": "main", "index": 0 }
+      ]]
+    },
+    "Step 8a · auto-seo": {
+      "main": [[{ "node": "Step 9a · linkedin_en (claude haiku)", "type": "main", "index": 0 }]]
+    },
+    "Step 8b · agent-review": {
+      "main": [[{ "node": "Step 9b · linkedin_nl (claude haiku)", "type": "main", "index": 0 }]]
+    },
+    "Step 9a · linkedin_en (claude haiku)": {
+      "main": [[{ "node": "Assemble final draft payload", "type": "main", "index": 0 }]]
+    },
+    "Step 9b · linkedin_nl (claude haiku)": {
+      "main": [[{ "node": "Assemble final draft payload", "type": "main", "index": 0 }]]
+    },
+    "Step · hero image (parallel)": {
+      "main": [[{ "node": "Assemble final draft payload", "type": "main", "index": 0 }]]
+    },
+    "Assemble final draft payload": {
+      "main": [[{ "node": "Step 10 · save (blog-post-save)", "type": "main", "index": 0 }]]
+    },
+    "Step 10 · save (blog-post-save)": {
+      "main": [[{ "node": "Final response shape", "type": "main", "index": 0 }]]
+    }
+  }
+}

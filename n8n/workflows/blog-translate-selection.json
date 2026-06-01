@@ -1,0 +1,129 @@
+{
+  "name": "blog-translate-selection",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "blog" }, { "name": "selection" }],
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "blog-translate-selection",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+              { "name": "Access-Control-Allow-Headers", "value": "content-type" }
+            ]
+          }
+        }
+      },
+      "id": "trigger",
+      "name": "Webhook · POST /webhook/blog-translate-selection",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 320],
+      "webhookId": "blog-translate-selection"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst text = (body.text ?? '').toString();\nif (!text.trim()) throw new Error('empty_selection');\nconst target = body.target_language === 'en' ? 'en' : 'nl';\nconst voiceId = body.voice_template_id ?? null;\n// crude source detection: count Dutch-specific function words\nconst lower = text.toLowerCase();\nconst nlMarkers = ['de ', 'het ', 'een ', 'is ', 'zijn ', 'niet ', 'maar ', 'voor ', 'wat ', 'dat '];\nconst hits = nlMarkers.filter((m) => lower.includes(m)).length;\nconst source = hits >= 2 ? 'nl' : 'en';\nreturn [{ json: { text, target_language: target, source_language: source, voice_id: voiceId } }];"
+      },
+      "id": "parse",
+      "name": "Parse + detect source",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 320]
+    },
+
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "hvl_voice_templates",
+        "where": {
+          "values": [
+            { "column": "id", "value": "={{ $json.voice_id }}" }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "voice_lookup",
+      "name": "Voice template lookup",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [640, 320],
+      "credentials": {
+        "supabaseApi": { "name": "Supabase · pesfakewujjwkyybwaom" }
+      },
+      "continueOnFail": true
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const voice = $input.first().json;\nconst ctx = $('parse').first().json;\nconst target = ctx.target_language === 'nl' ? 'Dutch (Nederlands)' : 'English';\nconst tone = voice?.tone || 'plainspoken, slightly skeptical of hype';\nconst style = voice?.writing_style || 'short opening sentence, concrete numbers, no filler adjectives';\nconst banned = Array.isArray(voice?.banned_words) ? voice.banned_words.join(', ') : '';\nconst system = `You translate prose to ${target} for a single author, preserving voice.\\n\\nVoice tone: ${tone}\\nWriting style: ${style}${banned ? `\\nBanned words in target language (never use): ${banned}` : ''}\\n\\nRules:\\n- Output ONLY the translated text, no preface, no quotes, no JSON.\\n- Technical terms STAY in English (API, queue, latency, dashboard, etc.).\\n- Names, brand names, code keywords, acronyms stay as-is.\\n- Preserve sentence rhythm and length where possible.\\n- Match the source's register exactly: don't make it more formal or more casual.\\n- Never invent meaning the source didn't contain.`;\nreturn [{ json: { ...ctx, system_prompt: system } }];"
+      },
+      "id": "compose_prompt",
+      "name": "Compose system prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 320]
+    },
+
+    {
+      "parameters": {
+        "model": "claude-haiku-4-5",
+        "operation": "messageModel",
+        "system": "={{ $json.system_prompt }}",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=Translate to {{ $json.target_language === 'nl' ? 'Dutch' : 'English' }}:\\n\\n{{ $json.text }}"
+            }
+          ]
+        },
+        "options": { "maxTokens": 1200 }
+      },
+      "id": "claude",
+      "name": "Claude Haiku · translate",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1,
+      "position": [1040, 320],
+      "credentials": {
+        "anthropicApi": { "name": "Anthropic · Claude" }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "let text = $input.first().json.message ?? $input.first().json.text ?? $input.first().json.content ?? '';\ntext = text.trim();\ntext = text.replace(/^['\\\"\\u201C]+|['\\\"\\u201D]+$/g, '');\n// Light heuristic for which English terms slipped through unchanged in NL output.\nconst ctx = $('parse').first().json;\nlet detected = [];\nif (ctx.target_language === 'nl') {\n  const candidates = ['API','SDK','queue','dashboard','latency','retry','endpoint','workflow','prompt','token','agent'];\n  detected = candidates.filter((c) => new RegExp('\\\\b'+c+'\\\\b','i').test(text));\n}\nreturn [{ json: {\n  text,\n  source_language: ctx.source_language,\n  detected_terms_kept_english: detected,\n} }];"
+      },
+      "id": "shape",
+      "name": "Shape response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 320]
+    }
+  ],
+
+  "connections": {
+    "Webhook · POST /webhook/blog-translate-selection": {
+      "main": [[{ "node": "Parse + detect source", "type": "main", "index": 0 }]]
+    },
+    "Parse + detect source": {
+      "main": [[{ "node": "Voice template lookup", "type": "main", "index": 0 }]]
+    },
+    "Voice template lookup": {
+      "main": [[{ "node": "Compose system prompt", "type": "main", "index": 0 }]]
+    },
+    "Compose system prompt": {
+      "main": [[{ "node": "Claude Haiku · translate", "type": "main", "index": 0 }]]
+    },
+    "Claude Haiku · translate": {
+      "main": [[{ "node": "Shape response", "type": "main", "index": 0 }]]
+    }
+  }
+}
