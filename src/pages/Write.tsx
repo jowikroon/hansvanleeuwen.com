@@ -132,6 +132,8 @@ const Icon = {
   Sparkle: ({ c = "currentColor" }: { c?: string }) => (<svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ color: c }}><path d="M6 1.5L7.2 4.8 10.5 6 7.2 7.2 6 10.5 4.8 7.2 1.5 6 4.8 4.8z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>),
   Image: () => (<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="1" stroke="currentColor" strokeWidth="1.5"/><circle cx="6" cy="7" r="1" fill="currentColor"/><path d="M3 12l3-3 3 2 3-3 2 2" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>),
   Save: () => (<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 2h7l1.5 1.5V10H2zM4 2v3h4V2" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>),
+  Paperclip: () => (<svg viewBox="0 0 16 16" fill="none"><path d="M14 8.5l-6 6a4.2 4.2 0 01-6-6l7-7a2.8 2.8 0 014 4l-6.5 6.5a1.4 1.4 0 01-2-2l5.5-5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>),
+  Music: () => (<svg viewBox="0 0 16 16" fill="none"><path d="M6 12.5V3l7-1.5V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><circle cx="4" cy="12.5" r="2" stroke="currentColor" strokeWidth="1.5" /><circle cx="11" cy="11" r="2" stroke="currentColor" strokeWidth="1.5" /></svg>),
 };
 
 // ─── Page ───────────────────────────────────────────────────────────
@@ -493,6 +495,22 @@ export default function Write() {
           >
             <span className="mode-l"><Icon.Bars /><span>Analytics</span></span>
             <span className="count">7d</span>
+          </button>
+          <button
+            className="mode"
+            onClick={() => navigate("/portal/bijlagen")}
+            title="Bijlagen, PDF Deep Research & Google Docs"
+          >
+            <span className="mode-l"><Icon.Paperclip /><span>Bijlagen</span></span>
+            <span className="count">436</span>
+          </button>
+          <button
+            className="mode"
+            onClick={() => navigate("/music-cms?mode=productie")}
+            title="Music CMS, NeuralAnalog Masters & Catalogus"
+          >
+            <span className="mode-l"><Icon.Music /><span>Muziek</span></span>
+            <span className="count">NeoN</span>
           </button>
         </aside>
 

@@ -11,7 +11,7 @@ import AnimatedRoutes from "./components/AnimatedRoutes";
 const queryClient = new QueryClient();
 
 const CHROMELESS_ROUTES = ["/marcel"];
-const DARK_PAGES = ["/seo-cms", "/portal/blog", "/portal/write", "/write", "/blog-cms", "/voice"];
+const DARK_PAGES = ["/seo-cms", "/portal/blog", "/portal/write", "/write", "/blog-cms", "/voice", "/portal/bijlagen", "/bijlagen", "/portal/attachments", "/music-cms", "/music", "/portal/music"];
 
 const AppShell = () => {
   const { pathname } = useLocation();

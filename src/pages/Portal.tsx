@@ -7,7 +7,7 @@ import {
   ExternalLink, LogOut, BarChart3, Workflow, Globe, Newspaper,
   Database, Shield, Bot, Sparkles, Activity, Server, DollarSign,
   PenLine, Clock, Home, Cpu, CheckCircle2, ChevronDown,
-  Plus, Trash2, X, Zap,
+  Plus, Trash2, X, Zap, Paperclip, Music, Disc,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -24,7 +24,7 @@ interface ToolCard {
 
 const ICON_MAP: Record<string, typeof BarChart3> = {
   DollarSign, Sparkles, PenLine, Workflow, Database, Globe, Newspaper, Shield, Bot,
-  BarChart3, Server, Activity, Cpu, Home, Zap,
+  BarChart3, Server, Activity, Cpu, Home, Zap, Paperclip, Music, Disc,
 };
 
 function getGreeting(): string {
@@ -39,7 +39,10 @@ const DEFAULT_TOOLS: ToolCard[] = [
   { id: "mg-profit", name: "Profitability", description: "Per-SKU margins, FIFO COGS, 15+ fee categories.", icon: "DollarSign", url: "https://marketplacegrowth.nl/app", badge: "Live" },
   { id: "mg-content", name: "Content Builder", description: "AI 5-step wizard with inline editing and compliance.", icon: "Sparkles", url: "https://marketplacegrowth.nl/app", badge: "Live" },
   { id: "blog-cms", name: "Blog CMS", description: "3 voice templates, markdown editor, AI improve.", icon: "PenLine", url: "/portal/blog", internal: true },
+  { id: "bijlagen", name: "Bijlagen & Research", description: "436 items, 2.2k versies (HVL, CCP & NeoN) met live preview.", icon: "Paperclip", url: "/portal/bijlagen", internal: true, badge: "436 Items" },
+  { id: "music-cms", name: "Music CMS & Masters", description: "Productie dashboard, NeuralAnalog masters, songs & catalogus.", icon: "Music", url: "/music-cms?mode=productie", internal: true, badge: "NeoN" },
   { id: "n8n", name: "n8n Workflows", description: "34+ workflows — news, sync, agents, reports.", icon: "Workflow", url: "https://n8n.srv1402218.hstgr.cloud", badge: "Self-hosted" },
+  { id: "masterflow", name: "Masterflow Command", description: "Centrale automatiserings- en workflow-visualisatie.", icon: "Workflow", url: "/masterflow", internal: true, badge: "Orchestrator" },
   { id: "supabase", name: "Supabase", description: "70+ tables, Vault, edge functions, pg_cron.", icon: "Database", url: "https://supabase.com/dashboard/project/pesfakewujjwkyybwaom" },
   { id: "vercel", name: "Vercel", description: "Auto-deploy for both sites.", icon: "Globe", url: "https://vercel.com/hansvl3-4255s-projects" },
   { id: "news", name: "News Intelligence", description: "26 sources, AI categorization, Reddit discovery.", icon: "Newspaper", url: "https://marketplacegrowth.nl/app", badge: "30min" },
