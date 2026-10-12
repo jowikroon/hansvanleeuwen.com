@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, LogIn, PenLine, Newspaper, Bot, ChevronDown, User, LogOut } from "lucide-react";
+import { Menu, X, LogIn, PenLine, Newspaper, Bot, ChevronDown, User, LogOut, LayoutDashboard, Paperclip, Music } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const links = [
@@ -9,6 +9,7 @@ const links = [
   { to: "/work", label: "Work" },
   { to: "/writing", label: "Writing" },
   { to: "/about", label: "About" },
+  { to: "/dashboards", label: "Dashboards" },
 ];
 
 const Navbar = () => {
@@ -80,12 +81,33 @@ const Navbar = () => {
                     transition={{ duration: 0.15 }}
                     className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-background/95 backdrop-blur-md shadow-lg overflow-hidden"
                   >
+                                        <Link
+                      to="/dashboards"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <LayoutDashboard size={14} />
+                      Command Dashboards
+                    </Link>
                     <Link
                       to="/portal/blog"
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                     >
                       <PenLine size={14} />
                       Blogs
+                    </Link>
+                    <Link
+                      to="/portal/bijlagen"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <Paperclip size={14} />
+                      Bijlagen & Research
+                    </Link>
+                    <Link
+                      to="/music-cms?mode=productie"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <Music size={14} />
+                      Music CMS & Masters
                     </Link>
                     <Link
                       to="/writing"
@@ -162,6 +184,12 @@ const Navbar = () => {
                   <div className="border-t border-border pt-2" />
                   <Link to="/portal/blog" onClick={() => setMobileOpen(false)} className="nav-link text-base inline-flex items-center gap-2">
                     <PenLine size={14} /> Blogs
+                  </Link>
+                  <Link to="/portal/bijlagen" onClick={() => setMobileOpen(false)} className="nav-link text-base inline-flex items-center gap-2">
+                    <Paperclip size={14} /> Bijlagen & Research
+                  </Link>
+                  <Link to="/music-cms?mode=productie" onClick={() => setMobileOpen(false)} className="nav-link text-base inline-flex items-center gap-2">
+                    <Music size={14} /> Music CMS & Masters
                   </Link>
                   <Link to="/writing" onClick={() => setMobileOpen(false)} className="nav-link text-base inline-flex items-center gap-2">
                     <Newspaper size={14} /> News

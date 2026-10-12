@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hans van Leeuwen — Master Workflow Command Center v2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --g0:#070810;--g1:#0d0f1c;--g2:#12142a;
+  --teal:#00e5c8;--purple:#9b6dff;--amber:#f5a623;--coral:#ff5c57;--blue:#4facfe;--green:#43e97b;--pink:#f857a6;--lime:#a8e063;
+  --t1:rgba(255,255,255,.92);--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.28);--t4:rgba(255,255,255,.12);
+  --glass:rgba(10,12,20,.72);--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);
+  --r:20px;--r2:12px;--r3:8px;--pill:999px;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--g0);color:var(--t1);min-height:100vh;overflow-x:hidden}
+
+/* BG */
+.bg-layer{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 80% 60% at 15% 10%,rgba(0,229,200,.04) 0%,transparent 60%),
+             radial-gradient(ellipse 60% 50% at 85% 85%,rgba(155,109,255,.05) 0%,transparent 60%),
+             radial-gradient(ellipse 40% 40% at 50% 50%,rgba(79,172,254,.02) 0%,transparent 70%)}
+.bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
+  background-size:48px 48px;
+  mask-image:radial-gradient(ellipse 100% 100% at 50% 50%,black 20%,transparent 80%)}
+
+/* LAYOUT */
+.app{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:48px 32px 100px}
+
+/* NAV TABS */
+.nav{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:48px;padding:6px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--pill)}
+.nav-tab{padding:8px 18px;border-radius:var(--pill);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.05em;color:var(--t3);cursor:pointer;transition:all .2s;border:none;background:transparent;text-transform:uppercase}
+.nav-tab:hover{color:var(--t2);background:rgba(255,255,255,.05)}
+.nav-tab.active{color:var(--t1);background:rgba(255,255,255,.1);border:1px solid var(--border2)}
+
+/* SECTION */
+.section{display:none}.section.active{display:block}
+
+/* HEADER */
+.hdr-badge{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:var(--pill);background:rgba(0,229,200,.08);border:1px solid rgba(0,229,200,.2);font-family:'DM Mono',monospace;font-size:10px;color:var(--teal);letter-spacing:.08em;text-transform:uppercase;margin-bottom:16px}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--teal);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.hdr-title{font-family:'Syne',sans-serif;font-size:clamp(26px,3.5vw,44px);font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hdr-title span{color:var(--teal)}
+.hdr-sub{font-size:13px;color:var(--t2);line-height:1.6;max-width:600px;margin-top:10px}
+
+/* STATS ROW */
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px;margin-bottom:48px}
+.stat{display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:var(--pill);background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(20px)}
+.stat-dot{width:7px;height:7px;border-radius:50%}
+.stat-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase}
+.stat-val{font-family:'Syne',sans-serif;font-size:14px;font-weight:700}
+
+/* SECTION DIVIDER */
+.sec-lbl{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--t3);margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.sec-lbl::before{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.07))}
+.sec-lbl::after{content:'';flex:2;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.07),transparent)}
+
+/* CARD BASE */
+.card{border-radius:var(--r);border:1px solid var(--border);background:var(--glass);backdrop-filter:blur(24px);transition:transform .25s ease,border-color .25s,box-shadow .25s;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;inset:0;border-radius:var(--r);background:linear-gradient(135deg,rgba(255,255,255,.04) 0%,transparent 50%);pointer-events:none}
+.card:hover{transform:perspective(1000px) rotateX(-.5deg) rotateY(.5deg) translateY(-3px);border-color:var(--border2)}
+.card-accent-bar{height:2px;width:100%}
+
+/* GRID LAYOUTS */
+.grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.grid-4{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+
+/* SCHEDULE CARD */
+.sched-hdr{padding:20px 22px 14px;display:flex;align-items:flex-start;gap:14px}
+.sched-icon{width:40px;height:40px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px}
+.sched-meta{flex:1}
+.sched-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700}
+.sched-time{font-family:'DM Mono',monospace;font-size:10px;color:var(--t3);margin-top:2px}
+.sched-scope{display:flex;flex-wrap:wrap;gap:4px;padding:0 22px 12px}
+.scope-tag{padding:2px 8px;border-radius:var(--pill);font-family:'DM Mono',monospace;font-size:9px;background:rgba(255,255,255,.05);color:var(--t3)}
+
+/* FLOW STEPS */
+.flow{padding:0 22px 16px}
+.step{display:flex;gap:10px;padding:7px 0;position:relative}
+.step:not(:last-child)::after{content:'';position:absolute;left:10px;top:28px;width:1px;height:calc(100% - 8px);background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.03))}
+.step-n{width:20px;height:20px;border-radius:50%;border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:8px;color:var(--t3);background:rgba(255,255,255,.04);flex-shrink:0;margin-top:1px}
+.step-body{flex:1}
+.step-name{font-size:12px;font-weight:500;line-height:1.3}
+.step-desc{font-size:11px;color:var(--t2);margin-top:2px;line-height:1.4}
+.step-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.stag{padding:2px 7px;border-radius:var(--pill);font-family:'DM Mono',monospace;font-size:9px;border:1px solid}
+
+/* OUTPUT CHIPS */
+.outputs{padding:12px 22px 18px;border-top:1px solid rgba(255,255,255,.05);display:flex;flex-wrap:wrap;gap:6px}
+.ochip{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--r3);background:rgba(255,255,255,.04);border:1px solid var(--border);font-size:11px;color:var(--t2)}
+.odot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+
+/* PROMPT BLOCK */
+.prompt-blk{margin:0 22px 20px;padding:12px 14px;border-radius:var(--r2);background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.05)}
+.prompt-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.prompt-lbl{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.copy-btn{padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--t3);cursor:pointer;font-family:'DM Mono',monospace;font-size:9px;transition:all .15s}
+.copy-btn:hover{background:rgba(255,255,255,.08);color:var(--t2)}
+.prompt-txt{font-family:'DM Mono',monospace;font-size:10px;color:var(--t2);line-height:1.6;white-space:pre-wrap;word-break:break-word;max-height:160px;overflow-y:auto}
+.prompt-txt::-webkit-scrollbar{width:3px}.prompt-txt::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+
+/* STATUS badge */
+.status-row{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.sdot{width:7px;height:7px;border-radius:50%}
+.s-active{background:var(--green);box-shadow:0 0 8px rgba(67,233,123,.5);animation:pulse 2.5s ease-in-out infinite}
+.s-build{background:var(--amber)}
+.s-paused{background:rgba(255,255,255,.25)}
+.s-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--t3)}
+
+/* ROUTING CARDS */
+.route-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-bottom:44px}
+.rcard{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border-radius:14px;background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(20px);transition:border-color .2s}
+.rcard:hover{border-color:var(--border2)}
+.ricon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.rtrigger{font-size:10px;color:var(--t3);margin-bottom:3px;font-family:'DM Mono',monospace}
+.raction{font-size:12px;font-weight:500}
+.rtag{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:var(--pill);font-size:9px;font-family:'DM Mono',monospace;border:1px solid;margin-top:4px}
+
+/* PROJECT CARDS (non-schedule) */
+.proj-card{padding:20px 22px}
+.proj-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:4px}
+.proj-domain{font-family:'DM Mono',monospace;font-size:10px;color:var(--t3);margin-bottom:12px}
+.proj-status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.proj-badge{padding:3px 10px;border-radius:var(--pill);font-family:'DM Mono',monospace;font-size:9px}
+.proj-items{list-style:none}
+.proj-items li{font-size:12px;color:var(--t2);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);display:flex;align-items:flex-start;gap:8px;line-height:1.4}
+.proj-items li::before{content:'→';color:var(--t3);font-family:'DM Mono',monospace;font-size:10px;flex-shrink:0;margin-top:1px}
+.proj-items li.done::before{content:'✓';color:var(--green)}
+.proj-items li.warn::before{content:'!';color:var(--amber)}
+.proj-items li.block::before{content:'✗';color:var(--coral)}
+
+/* BRAND CARDS */
+.brand-card{padding:16px 18px;border-radius:14px;background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(20px);transition:transform .2s,border-color .2s}
+.brand-card:hover{transform:translateY(-2px);border-color:var(--border2)}
+.brand-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:3px}
+.brand-domain{font-family:'DM Mono',monospace;font-size:9px;color:var(--t3)}
+.brand-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:8px}
+.btag{padding:2px 6px;border-radius:var(--pill);font-size:9px;font-family:'DM Mono',monospace;background:rgba(255,255,255,.05);color:var(--t3)}
+
+/* MASTER PROMPT SECTION */
+.mp-card{border-radius:var(--r);border:1px solid rgba(0,229,200,.2);background:rgba(0,229,200,.02);backdrop-filter:blur(24px);padding:28px;position:relative;overflow:hidden}
+.mp-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,229,200,.4),transparent)}
+.mp-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:6px}
+.mp-sub{font-size:13px;color:var(--t2);margin-bottom:20px;line-height:1.6}
+.mp-body{font-family:'DM Mono',monospace;font-size:10.5px;color:rgba(0,229,200,.8);line-height:1.7;white-space:pre-wrap;background:rgba(0,0,0,.4);padding:20px;border-radius:var(--r2);border:1px solid rgba(0,229,200,.1);max-height:500px;overflow-y:auto}
+.mp-body::-webkit-scrollbar{width:4px}.mp-body::-webkit-scrollbar-thumb{background:rgba(0,229,200,.2);border-radius:2px}
+.copy-mp{margin-top:14px;padding:9px 18px;border-radius:var(--r3);background:rgba(0,229,200,.1);border:1px solid rgba(0,229,200,.25);color:var(--teal);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;transition:background .15s;letter-spacing:.05em}
+.copy-mp:hover{background:rgba(0,229,200,.18)}
+
+/* INFRA GRID */
+.infra-item{padding:16px 18px}
+.infra-name{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;margin-bottom:4px}
+.infra-host{font-size:10px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:8px}
+.infra-tags{display:flex;flex-wrap:wrap;gap:4px}
+.itag{padding:2px 7px;border-radius:var(--pill);font-size:9px;font-family:'DM Mono',monospace;background:rgba(255,255,255,.05);color:var(--t3);border:1px solid rgba(255,255,255,.07)}
+.infra-alert{margin-top:8px;padding:6px 10px;border-radius:6px;background:rgba(255,92,87,.08);border:1px solid rgba(255,92,87,.2);font-size:10px;color:#ff5c57;font-family:'DM Mono',monospace}
+
+/* DIVIDER */
+.divider{height:1px;background:rgba(255,255,255,.05);margin:40px 0}
+
+/* CHANGELOG */
+.changelog{padding:0}
+.cl-item{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.cl-date{font-family:'DM Mono',monospace;font-size:10px;color:var(--t3);flex-shrink:0;width:68px;padding-top:2px}
+.cl-body{flex:1}
+.cl-title{font-size:13px;font-weight:500;margin-bottom:3px}
+.cl-desc{font-size:11px;color:var(--t2);line-height:1.5}
+.cl-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.cltag{padding:2px 7px;border-radius:var(--pill);font-family:'DM Mono',monospace;font-size:9px;border:1px solid}
+
+/* RESPONSIVE */
+@media(max-width:640px){.app{padding:20px 14px 60px}.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}.nav{gap:2px}.nav-tab{padding:6px 12px;font-size:10px}}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="bg-layer"></div>
+<div class="bg-grid"></div>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="hdr-badge"><span class="badge-dot"></span>Master Command Center v2</div>
+  <h1 class="hdr-title">Hans van Leeuwen<br><span>Workflow</span> Intelligence</h1>
+  <p class="hdr-sub">All active schedules, projects, routing logic, Cowork dispatch architecture, and master prompts — updated May 2026.</p>
+
+  <div class="stats" id="stats-row"></div>
+
+  <!-- NAV -->
+  <nav class="nav" id="main-nav"></nav>
+
+  <!-- SECTIONS -->
+  <div id="sections-container"></div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════ DATA
+
+const STATS = [
+  {dot:'#00e5c8',lbl:'Schedules',val:'9'},
+  {dot:'#9b6dff',lbl:'Brand groups',val:'5'},
+  {dot:'#f5a623',lbl:'Projects active',val:'12'},
+  {dot:'#ff5c57',lbl:'Output tools',val:'5'},
+  {dot:'#4facfe',lbl:'VPS servers',val:'2'},
+  {dot:'#43e97b',lbl:'Source of truth',val:'Supabase'},
+];
+
+const TABS = ['Schedules','Projects','Routing','Brands','Infrastructure','Master Prompt','Changelog'];
+
+// ── SCHEDULES ──────────────────────────────────────────────────
+const SCHEDULES = [
+  {
+    title:'AI Brand Radar Monitor',icon:'📡',accent:'#00e5c8',ar:'0,229,200',
+    time:'Every Monday · 09:00 Amsterdam',status:'active',
+    scope:['ConnectCarParts','A.B.S. All Brake Systems','MarketplaceGrowth.nl','hansvanleeuwen.com','OpenClaw'],
+    steps:[
+      {n:'1',name:'Pull Brand Radar data',desc:'Current + prev week per brand group from Ahrefs Brand Radar'},
+      {n:'2',name:'Normalize & false-positive filter',desc:'Entity matching rules; ABS generic → exclude; CCP unrelated → exclude'},
+      {n:'3',name:'WoW delta + Share of Voice',desc:'Mentions, SoV %, top AI source per brand vs competitor set'},
+      {n:'4',name:'Gap analysis',desc:'Topics where competitors appear but brands do not → classify P1 vs strategic'},
+      {n:'5',name:'Route actions',desc:'P1 technical → Linear seo-auto-fix · Strategic → Monday.com',tags:['linear','monday']},
+      {n:'6',name:'Post to Slack #seo',desc:'Executive summary, scorecard, missed opportunities, actions',tags:['slack']},
+      {n:'7',name:'Store weekly snapshot',desc:'Insert JSON record → Supabase brand_radar_weekly',tags:['supabase']},
+    ],
+    outputs:['Slack #seo','Linear P1','Monday.com','Supabase'],
+    prompt:`You are the AI Brand Radar Monitor for Hans van Leeuwen.
+Run: Every Monday 09:00 Europe/Amsterdam.
+
+BRAND GROUPS (5):
+1. ConnectCarParts / connectcarparts.nl / CCP (brand context only)
+2. A.B.S. All Brake Systems / ABS (brand context only — never generic ABS)
+3. MarketplaceGrowth.nl / marketplacegrowth.nl
+4. hansvanleeuwen.com (personal brand — domain context only)
+5. OpenClaw / Samantha AI / openclaw.ai
+
+FALSE POSITIVES → EXCLUDE:
+ABS = anti-lock braking system → exclude
+CCP = unrelated org → exclude
+Marketplace Growth = generic phrase → exclude
+Hans van Leeuwen = common name, no domain context → exclude
+
+STEPS:
+1. Ahrefs Brand Radar: current + previous week per group
+2. Normalize; remove false positives
+3. Calculate: mentions, WoW delta, SoV, top AI source
+4. Classify gap: technical → Linear (seo-auto-fix P1) / strategic → Monday.com
+5. Post Slack #seo: executive summary + scorecard + actions
+6. Insert: Supabase pesfakewujjwkyybwaom → brand_radar_weekly
+
+GUARDRAILS: Never invent. No data = "not found". Never assume.`
+  },
+  {
+    title:'Weekly SEO Audit',icon:'🔍',accent:'#9b6dff',ar:'155,109,255',
+    time:'Every Monday · 07:00 Amsterdam',status:'active',
+    scope:['hansvanleeuwen.com','connectcarparts.nl','marketplacegrowth.nl'],
+    steps:[
+      {n:'1',name:'Technical SEO crawl',desc:'Ahrefs Site Audit: broken links, CWV, indexability, schema'},
+      {n:'2',name:'Content SEO scan',desc:'Keyword gaps, cannibalization, missing structured data, thin content'},
+      {n:'3',name:'Merge + classify',desc:'Severity P1 (critical) / P2 (important) / P3 (nice-to-have)'},
+      {n:'4',name:'P1 → Linear',desc:'Auto-create issue, label: seo-auto-fix, priority: urgent',tags:['linear']},
+      {n:'5',name:'Strategic → Monday.com',desc:'Content and authority gaps → task, owner: Hans',tags:['monday']},
+      {n:'6',name:'Claude Code auto-fix',desc:'P1 headless: claude -p "<prompt>" --output-format stream-json via n8n'},
+      {n:'7',name:'Two-part report',desc:'Technical + Content sections → Slack #seo + email digest',tags:['slack']},
+      {n:'8',name:'Store findings',desc:'Insert to Supabase seo_audit_findings',tags:['supabase']},
+    ],
+    outputs:['Slack #seo','Email digest','Linear seo-auto-fix','Monday.com','Supabase'],
+    prompt:`You are the Weekly SEO Audit agent.
+Run: Every Monday 07:00 Europe/Amsterdam.
+
+DOMAINS: hansvanleeuwen.com · connectcarparts.nl · marketplacegrowth.nl
+
+STEPS:
+1. Technical: Ahrefs Site Audit — crawl errors, broken links, CWV, indexability, schema
+2. Content: Ahrefs Site Explorer — keyword gaps, cannibalization, thin pages, missing structured data
+3. Merge + classify: P1 critical, P2 important, P3 nice-to-have
+4. P1 technical → Linear issue, label: seo-auto-fix, priority: urgent
+5. Content/strategic → Monday.com task, owner: Hans
+6. P1 Claude Code auto-fix: invoke via n8n headless on VPS 1
+7. Two-part report (Technical + Content) → Slack #seo + email
+8. Insert all findings → Supabase seo_audit_findings (project: pesfakewujjwkyybwaom)
+
+INFRA: n8n at https://n8n.srv1402218.hstgr.cloud
+Claude Code: claude -p "<prompt>" --output-format stream-json
+Secrets: /root/.claude.json or /etc/seo-orchestrator/.env — NEVER hardcode
+All ports → Tailscale (100.x.x.x) except GitHub webhook receiver`
+  },
+  {
+    title:'Google Ads Performance Monitor',icon:'📈',accent:'#f5a623',ar:'245,166,35',
+    time:'Every Monday · 08:00 Amsterdam',status:'active',
+    scope:['ConnectCarParts (CCP)'],
+    steps:[
+      {n:'1',name:'Campaign performance pull',desc:'ROAS, spend, conversions per campaign — 1.1 Branded, 1.4 Remblokken, 2.2 PMax, etc.'},
+      {n:'2',name:'Consent Mode v2 check',desc:'CRITICAL: granted rate target >80% — currently 0% = data loss 70–75%'},
+      {n:'3',name:'Negative keyword audit',desc:'Scan 9 lists for self-blocking, competitor leakage, irrelevant terms'},
+      {n:'4',name:'Budget utilization',desc:'Flag underspend / overspend vs allocated per campaign'},
+      {n:'5',name:'Asset strength audit',desc:'Flag Poor assets → recommendations for Good/Best',tags:['monday']},
+      {n:'6',name:'Competitor SoV',desc:'Impression share vs AUTODOC, Winparts, Mister-Auto'},
+      {n:'7',name:'Weekly report',desc:'Performance summary → Slack #seo + wekelijkse update email',tags:['slack']},
+      {n:'8',name:'Store metrics',desc:'Insert → Supabase ads_weekly_metrics',tags:['supabase']},
+    ],
+    outputs:['Slack #seo','Wekelijkse email','Monday.com','Supabase'],
+    prompt:`You are the Google Ads Performance Monitor for ConnectCarParts (CCP).
+Run: Every Monday 08:00 Europe/Amsterdam.
+
+CAMPAIGNS: 1.1 Branded (€10/day), 1.4 Remblokken (€27/day), 2.2 PMax (€80/day)
+PAUSED: 2.1/2.3/2.4 PMax, 1.3 DSA, 3.1 Video, ad group "Remschijven Algemeen"
+AGENCY: Thinkyellow (replaced Atvise April 2026)
+
+CRITICAL CHECKS (always):
+- Consent Mode v2 granted rate — target >80% (current: 0% = CRITICAL, causes 70-75% data loss)
+- Self-blocking keywords in any match type
+- ROAS below 150% (realistic NL target: 400–600%)
+- Language targeting: Dutch only (drop English if still active)
+- Asset strength: flag Poor assets
+
+CATALOG: Remmen 26,843 SKUs · Stuurdelen 8,686 · Wiellagersets 4,142
+NOT sold: filters, oils, wipers, lights, shocks, tires, batteries, body parts
+
+STEPS: pull metrics → Consent Mode check → neg KW audit → budget util → asset strength → competitor SoV → Slack + email → Supabase ads_weekly_metrics`
+  },
+  {
+    title:'Marketplace Expansion Tracker',icon:'🛒',accent:'#ff5c57',ar:'255,92,87',
+    time:'Every Monday · 09:30 Amsterdam',status:'active',
+    scope:['ConnectCarParts','A.B.S.','MarketplaceGrowth.nl'],
+    steps:[
+      {n:'1',name:'Bol.com performance',desc:'Orders, conversion, Buy Box %, listing health per category'},
+      {n:'2',name:'Amazon.de pipeline',desc:'FBA prep ~500 SKUs, FR-account block status (Paul/Vdexport), KvK docs (Raymond/Luca)'},
+      {n:'3',name:'ChatGPT Commerce check',desc:'CCP visibility vs Winparts, Autodoc — early-mover monitoring'},
+      {n:'4',name:'ABS trademark status',desc:'On-hold at Sjoerd (pledged as collateral) — flag any new development'},
+      {n:'5',name:'MarketplaceGrowth leads',desc:'Demo requests, Supabase Content Builder usage, lead pipeline'},
+      {n:'6',name:'Competitor intel',desc:'AUTODOC FBM gaps, Winparts bol.com moves, new entrants'},
+      {n:'7',name:'Triage actions',desc:'Blocks → Monday.com urgent · Opportunities → Monday.com backlog',tags:['monday']},
+      {n:'8',name:'Wekelijkse update',desc:'Post to Slack #seo + wekelijkse email Hans & Luca',tags:['slack']},
+    ],
+    outputs:['Slack #seo','Wekelijkse email','Monday.com','Supabase'],
+    prompt:`You are the Marketplace Expansion Tracker.
+Run: Every Monday 09:30 Europe/Amsterdam.
+
+ACTIVE CHANNELS: bol.com · Amazon.de (FBA prep, ~500 SKUs) · ChatGPT Commerce (live)
+BLOCKED: Amazon.de FR-account linkage — escalated via Paul at Vdexport
+TRADEMARK: ABS trademark on-hold at Sjoerd (pledged as collateral — affects Amazon Brand Registry)
+
+MG.NL STATUS: Vercel prj_jpiL4aZ58kd1tCwGJ9kbZSWSb9lW · Supabase pesfakewujjwkyybwaom · 36/40 roadmap shipped
+REMAINING: Amazon SP-API app, category sample data, currency conversion, public demo
+
+COMPETITOR WEAKNESSES:
+AUTODOC: FBM-only, minimal reviews, low-quality listings, minimal PPC
+Winparts: primary bol.com threat
+
+TEAM: Martijn (director) · Luca (ops) · Sjoerd (CFO) · Niek (D365/Magento)`
+  },
+  {
+    title:'hansvanleeuwen.com Health',icon:'🧠',accent:'#4facfe',ar:'79,172,254',
+    time:'Every Monday · 10:00 Amsterdam',status:'active',
+    scope:['hansvanleeuwen.com','hans.support','OpenClaw/Samantha'],
+    steps:[
+      {n:'1',name:'SEO entity check',desc:'Personal brand disambiguation — correct queries, AI mention quality'},
+      {n:'2',name:'Blog CMS audit',desc:'≥8 posts live, human-AI ratio target 50/50, GPTZero <40% per post'},
+      {n:'3',name:'Infrastructure status',desc:'9 services must all be status: active — never "unknown"'},
+      {n:'4',name:'Samantha / OpenClaw',desc:'VPS 2 heartbeat, n8n Claude Relay v2 (workflow L6W4AG74SGHIgw9n), Telegram bot'},
+      {n:'5',name:'hans.support health',desc:'Vercel deploy, DNS A→76.76.21.21, CNAME→cname.vercel-dns.com'},
+      {n:'6',name:'Music pipeline',desc:'DistroKid: 4 tracks, 3-week stagger — check phase status'},
+      {n:'7',name:'Route actions',desc:'Blog gap → Monday.com · Technical fix → Linear seo-auto-fix',tags:['linear','monday']},
+      {n:'8',name:'Weekly digest',desc:'Summary → Slack #seo',tags:['slack','supabase']},
+    ],
+    outputs:['Slack #seo','Linear seo-auto-fix','Monday.com','Supabase'],
+    prompt:`You are the hansvanleeuwen.com Weekly Health Monitor.
+Run: Every Monday 10:00 Europe/Amsterdam.
+
+DOMAINS: hansvanleeuwen.com · hans.support · OpenClaw / Samantha (VPS 2)
+
+BLOG: target ≥8 posts live, human-AI ratio 50/50, GPTZero score <40%
+PORTAL: unified design system — Editorial Utility aesthetic (amber accent, DM Mono + Fraunces)
+COMPONENTS: PortalShell, PageHeader, DataTable, StatusBadge, AIToolCard, MetricTile, EmptyState, ConfirmModal
+
+SAMANTHA: VPS 2 srv1411336.hstgr.cloud, Tailscale 100.81.168.2, port 18789
+n8n Claude Relay v2: workflow L6W4AG74SGHIgw9n
+Telegram bot: 8614326085:AAHnoVzrJBu0K30sTU3yZ4BvU4q2Htnyoks
+Home Assistant: Pi 5 Tailscale 100.86.198.76, 93 entities
+
+MUSIC: 4 Suno tracks → DistroKid. Order: Lekker Weer Toch? → Pausmobiel 808 → Rik tribute → Frequentie (last, quiet)
+
+ROUTING: Technical fix → Linear seo-auto-fix · Content gap → Monday.com · Samantha down → immediate Slack alert`
+  },
+  {
+    title:'CCP VIN Research Agent',icon:'🔬',accent:'#43e97b',ar:'67,233,123',
+    time:'On-demand · Claude in Chrome',status:'active',
+    scope:['ConnectCarParts — Remmen, Stuurdelen, Wiellagersets'],
+    steps:[
+      {n:'1',name:'Receive VIN / chassisnummer',desc:'Medewerker opent PartsFinder in Chrome, plakt VIN-vraag in Claude'},
+      {n:'2',name:'Research via Partslink / TecDoc',desc:'Zoek OEM-nummers, kruisreferenties, voertuig-varianten (ABS/non-ABS, "Ex EU")'},
+      {n:'3',name:'Certainty rate bepalen',desc:'0–100% met motivatie waarom dat percentage — bij meerdere opties: alle varianten met %'},
+      {n:'4',name:'POST naar Supabase',desc:'Tabel ccp_vin_research — date, VIN, vehicle, request, products, certainty, motivation'},
+      {n:'5',name:'Samenvatting in Chrome',desc:'Medewerker ziet resultaat direct, beantwoordt klant'},
+      {n:'6',name:'Excel export',desc:'GET ccp-vin-research-export Edge Function → Excel met groen/geel/rood op zekerheid',tags:['supabase']},
+    ],
+    outputs:['Supabase ccp_vin_research','Excel export','Chrome summary'],
+    prompt:`You are the CCP VIN Research Agent (Claude in Chrome).
+
+PURPOSE: Identify correct brake, steering or wheel bearing parts for a vehicle based on VIN or registration number.
+
+CATALOG SCOPE (ONLY these 3 categories):
+- Remmen / Brake Systems (26,843 SKUs)
+- Stuurdelen / Steering Parts (8,686 SKUs)
+- Wiellagersets / Wheel Bearings (4,142 SKUs)
+NOT sold: filters, oils, wipers, lights, shocks, tires, batteries, body parts
+
+CERTAINTY RULES (mandatory):
+- Certainty 100%: one unambiguous match confirmed by VIN + OE number
+- Certainty 50–99%: multiple variants possible — list ALL with individual % and motivation
+- Certainty <50%: escalate to Luca before confirming to customer
+- Always state WHY you assigned that percentage (PR-code, OE cross-reference, import status, etc.)
+
+OUTPUT FORMAT:
+1. Vehicle confirmed: [make, model, year, engine]
+2. Products found:
+   - Article [number]: [description] — Certainty [X%] — Motivation: [why]
+3. Open questions (if any)
+
+POST to Supabase: ccp_vin_research table
+Token: CCP_AGENT_TOKEN (from Supabase secrets — never hardcode)
+Endpoint: ccp-vin-research-log Edge Function`
+  },
+  {
+    title:'CR2 Batch Processing Pipeline',icon:'📷',accent:'#f857a6',ar:'248,87,166',
+    time:'On-demand · n8n Form Trigger',status:'active',
+    scope:['hansvanleeuwen.com (personal tool)'],
+    steps:[
+      {n:'1',name:'Upload via web form',desc:'User uploads reference PNG + ZIP of CR2 files + strength (0–1) + output format'},
+      {n:'2',name:'n8n Form Trigger',desc:'Webhook receives multipart/form-data, validates files'},
+      {n:'3',name:'SSH to VPS 1',desc:'n8n Execute Command node: runs cr2-match CLI on srv1402218'},
+      {n:'4',name:'Analyze reference PNG',desc:'Python: exposure, contrast, WB, tone curve, saturation, sharpening'},
+      {n:'5',name:'Apply to all CR2s',desc:'rawpy + Pillow + OpenCV — preserves originals, exports to output folder'},
+      {n:'6',name:'Email results ZIP',desc:'Processed ZIP → hansvl3@gmail.com via n8n Send Email node'},
+    ],
+    outputs:['Email ZIP','VPS 1 output folder'],
+    prompt:`You are the CR2 batch image processor on VPS 1 (srv1402218.hstgr.cloud).
+
+TRIGGERED BY: n8n Form Trigger webhook when user uploads:
+- reference_image: PNG/JPG reference showing desired style
+- cr2_files: ZIP containing Canon CR2 RAW files
+- strength: float 0.0–1.0 (default 0.7)
+- output_format: jpg/png/tiff (default jpg)
+
+EXECUTE: cr2-match CLI
+python -m cr2_match --reference <ref_path> --input <cr2_dir> --output <out_dir> --strength <s> --format <fmt>
+
+PRESERVE: originals always — never overwrite CR2 files
+OUTPUT: processed files to /home/claude/cr2-output/<timestamp>/
+ZIP: the output folder, return path to n8n
+EMAIL: n8n sends ZIP to hansvl3@gmail.com
+
+Stack: Python, rawpy, Pillow, OpenCV, NumPy
+VPS: 187.124.1.75, Tailscale 100.x.x.x`
+  },
+  {
+    title:'Cross-System Issue Resolver',icon:'↔',accent:'#4facfe',ar:'79,172,254',
+    time:'Weekdays · hourly Amsterdam',status:'active',
+    scope:['Linear Hansvanleeuwen','Monday.com Marketing/SEO','Supabase pesfakewujjwkyybwaom','Slack #seo'],
+    steps:[
+      {n:'1',name:'Preflight connectors',desc:'Linear, Monday.com, Supabase, Slack, n8n/Telegram, GitHub/Vercel if repo work is needed'},
+      {n:'2',name:'Pull open work',desc:'Open Linear HAN issues + Hans-owned Monday Marketing/SEO tasks'},
+      {n:'3',name:'Normalize and match',desc:'Strong: explicit links/keys · Medium: title + scope + owner/due date · Weak: data-quality note only'},
+      {n:'4',name:'Refresh link map',desc:'Write cross_system_issue_links and resolver_runs in Supabase',tags:['supabase']},
+      {n:'5',name:'Select exactly one',desc:'Urgent/high technical first, then stale duplicates, blocked next-step items, oldest linked work'},
+      {n:'6',name:'Scope guard',desc:'GREEN auto · ORANGE admin-only auto · RED refuse and log'},
+      {n:'7',name:'Solve or dispatch',desc:'Codex worktree/PR where possible; n8n bridge only where connectors require it',tags:['codex']},
+      {n:'8',name:'Update systems',desc:'Linear status/comment, Monday mirror, Slack #seo digest, Telegram only on dispatch/refusal/failure',tags:['linear','monday','slack']},
+    ],
+    outputs:['Linear comment','Monday.com','Slack #seo','Telegram alert','Supabase log','GitHub PR'],
+    prompt:`You are the Cross-System Issue Resolver for Hans van Leeuwen.
+Run: Weekdays hourly Europe/Amsterdam.
+
+MISSION: compare open Linear issues with Monday.com tasks, link duplicate/same work, select exactly one actionable item, solve or dispatch it, then update all accompanied systems.
+
+SOURCE OF TRUTH: Linear execution state wins. Monday.com is the strategic/visibility mirror. If Monday has newer context, append it as note; do not overwrite Linear status.
+
+DATA MODEL: Supabase pesfakewujjwkyybwaom tables cross_system_issue_links, resolver_runs, resolver_actions.
+
+MATCHING:
+- Strong: explicit Linear key/URL in Monday, or Monday URL/id in Linear
+- Medium: normalized title + same scope + owner/due-date overlap
+- Weak: similar title only; log data-quality note, no mutation
+
+ONE ITEM PER RUN:
+1. urgent/high technical Linear item
+2. stale duplicated pair with status disagreement
+3. blocked item with clear next step
+4. oldest actionable linked item
+
+GUARDS: GREEN auto-proceed. ORANGE auto only for link/status/admin work; repo/product changes require Hans. RED refuse outright.
+
+OUTPUT: Slack #seo in Dutch, Telegram only for dispatch/refusal/failure, log every mutation to Supabase.`
+  },
+  {
+    title:'Cowork → Claude Code Dispatch',icon:'⚡',accent:'#a8e063',ar:'168,224,99',
+    time:'Event-driven · Linear webhook trigger',status:'build',
+    scope:['hansvanleeuwen.com','MarketplaceGrowth.nl','ConnectCarParts'],
+    steps:[
+      {n:'1',name:'Linear webhook received',desc:'Label "cowork-dispatch" on ticket triggers n8n cowork-dispatch-to-claude-code workflow'},
+      {n:'2',name:'Payload normalize',desc:'Extract: title, description, acceptance criteria, ticket_id, repo_target from Linear'},
+      {n:'3',name:'Scope guard check',desc:'GREEN: auto-proceed · ORANGE: escalate to Hans · RED: refuse (home page, auth, core schema)'},
+      {n:'4',name:'Invoke Claude Code',desc:'systemd → claude -p "<prompt>" --output-format stream-json on VPS 1 tmux:claude'},
+      {n:'5',name:'Stream parse + PR',desc:'Parse output, extract PR URL via GitHub MCP, push to feature branch'},
+      {n:'6',name:'Linear comment',desc:'Post PR link + summary to Linear ticket',tags:['linear']},
+      {n:'7',name:'Opus 4 review',desc:'Auto-merge only after claude-opus-4 review passes (seo-orchestrator pattern)'},
+      {n:'8',name:'Telegram digest',desc:'Dispatch result → OpenClaw bot + Supabase cowork_dispatch_log',tags:['supabase']},
+    ],
+    outputs:['GitHub PR','Linear comment','Telegram alert','Supabase log'],
+    prompt:`You are the Cowork → Claude Code Dispatch orchestrator.
+TRIGGERED BY: Linear webhook on label "cowork-dispatch"
+
+SCOPE GUARDS (from MG-SCOPE-GUARD.md):
+GREEN  → auto-proceed (blog posts, SEO fixes, component additions, copy changes)
+ORANGE → escalate (routing changes, new pages, schema migrations)
+RED    → refuse  (home page /, auth flows, payment, core DB schema)
+
+EXECUTION:
+1. Normalize Linear payload (title, description, acceptance, ticket_id, repo_target)
+2. Check scope guard — refuse RED immediately with Linear comment
+3. Invoke: claude -p "<normalized_prompt>" --output-format stream-json
+   (via systemd cowork-dispatch.service on VPS 1)
+4. Parse stream-json output
+5. Extract PR URL from GitHub MCP
+6. Post PR link + 3-sentence summary to Linear ticket
+7. Trigger Opus 4 review; auto-merge only after pass
+8. Telegram digest → OpenClaw bot (8614326085:AAHnoVzrJBu0K30sTU3yZ4BvU4q2Htnyoks)
+9. Log to Supabase cowork_dispatch_log
+
+REVERT: "REVERT [PR#]" in Linear comment → git revert + new PR (never force-push main)
+GIT AUTHOR: hansvl3@gmail.com (required for Vercel deploys)
+PAT: [CONFIGURED IN K4 / EVERYTHING.ENV]`
+  },
+];
+
+// ── PROJECTS ────────────────────────────────────────────────────
+const PROJECTS = [
+  {
+    title:'Portal Design System',domain:'hansvanleeuwen.com',accent:'#4facfe',status:'in progress',badge:'building',
+    items:[
+      {t:'Unified portal shell: PortalShell, PageHeader, DataTable, StatusBadge, AIToolCard, MetricTile, EmptyState, ConfirmModal',done:false},
+      {t:'Editorial Utility aesthetic: dark base, amber accent, DM Mono + Fraunces',done:false},
+      {t:'Master prompt delivered for Claude Design generation',done:true},
+      {t:'CSS token system + component library integration across all portal pages',done:false},
+      {t:'Blog Manager (/portal/blog) — CRUD, 3 voice templates, AI improve tab',done:true},
+    ]
+  },
+  {
+    title:'SEO Orchestrator (4-stage)',domain:'hansvanleeuwen.com',accent:'#9b6dff',status:'scaffolding',badge:'active',
+    items:[
+      {t:'Parser/router → Linear/Monday creation built',done:true},
+      {t:'Claude Code watcher via n8n headless pattern built',done:true},
+      {t:'Opus 4.7 reviewer → auto-PR/merge after review pass',done:false},
+      {t:'Telegram digest (OpenClaw bot) on completion',done:false},
+      {t:'Smoke test: P1 canonical fix /amazon-nl-specialist confirmed',done:true},
+      {t:'cowork-dispatch systemd service + n8n workflow built, not yet activated',done:false,warn:true},
+    ]
+  },
+  {
+    title:'MarketplaceGrowth.nl SaaS',domain:'marketplacegrowth.nl',accent:'#f5a623',status:'36/40 shipped',badge:'active',
+    items:[
+      {t:'Content Builder schema: 7 migrations, 7 Edge Functions, GEMINI_API_KEY set',done:true},
+      {t:'15 pages exported to Figma TvowHqGbJax23VnXuD5MxX',done:true},
+      {t:'Remaining: Amazon SP-API app, category sample data, currency conversion, public demo',done:false},
+      {t:'GOD-STRUCTURE.md is architecture reference — keep current',done:true},
+      {t:'Git author: hansvl3@gmail.com (Vercel deploy requirement)',done:true},
+    ]
+  },
+  {
+    title:'Amazon.de Expansion (ABS)',domain:'connectcarparts.nl',accent:'#ff5c57',status:'blocked',badge:'blocked',
+    items:[
+      {t:'~500 SKUs selected via Helium10 for FBA',done:true},
+      {t:'Amazon.de competitor analysis: AUTODOC weaknesses documented',done:true},
+      {t:'FR-account linkage block — escalated via Paul at Vdexport',done:false,block:true},
+      {t:'ABS trademark on-hold at Sjoerd (pledged as collateral) — blocks Brand Registry',done:false,block:true},
+      {t:'KvK documentation pending via Raymond through Luca',done:false},
+      {t:'LinkedIn outreach to Mike Vroegh (Amazon.nl Strategic Account Services)',done:true},
+    ]
+  },
+  {
+    title:'eBay DE via Channable',domain:'connectcarparts.nl',accent:'#00e5c8',status:'in progress',badge:'building',
+    items:[
+      {t:'GPSR setup: project 314525, Brand ABS, operator 326207 — done',done:true},
+      {t:'26 product groups with German titles/descriptions selected',done:true},
+      {t:'Channable rule: exclude all → include "category_id is equal to any" (26 IDs)',done:true},
+      {t:'Listing rules, price/stock logic, DE shipping/returns profile — pending',done:false},
+      {t:'German title + description generation for all 26 groups — pending',done:false},
+    ]
+  },
+  {
+    title:'Bol.com Expansion',domain:'connectcarparts.nl',accent:'#a8e063',status:'outreach sent',badge:'active',
+    items:[
+      {t:'Proposal sent to Sroks April 16 2026',done:true},
+      {t:'ChatGPT Commerce live — early-mover, CCP visible alongside Winparts/Autodoc',done:true},
+      {t:'Bol.com B2C track record at Alpine as leverage',done:true},
+      {t:'Awaiting response from Sroks',done:false},
+    ]
+  },
+  {
+    title:'HansAI — SEA Campaign Manager',domain:'hansvanleeuwen.com / VPS 1',accent:'#f857a6',status:'deployed',badge:'live',
+    items:[
+      {t:'Deployed on Hostinger VPS with n8n integration',done:true},
+      {t:'Ultra-simplified SEA campaign manager for e-commerce managers',done:true},
+      {t:'5 industry templates: Fashion, Electronics, Beauty, Food, General',done:true},
+      {t:'Generates Google Ads campaigns (PMax, Shopping, Search, Demand Gen) in <2 min',done:true},
+      {t:'BJ Fogg Behavior Model applied — max adoption via minimal effort',done:true},
+    ]
+  },
+  {
+    title:'Samantha / OpenClaw v2',domain:'VPS 2 · AI Agent',accent:'#9b6dff',status:'active',badge:'active',
+    items:[
+      {t:'VPS 2 gateway live: port 18789, token 6ULLjETjtGfDHFN9ilA340YBLiiOtjUh',done:true},
+      {t:'Home Assistant Pi 5: 93 entities via MCP Server integration',done:true},
+      {t:'n8n Claude Relay v2 (L6W4AG74SGHIgw9n) as orchestrator',done:true},
+      {t:'CLAUDE.md v2.1 + samantha-full-context.md canonical',done:true},
+      {t:'Telegram + TTS voice loop (sendVoice for Apple Watch Series 10)',done:false},
+      {t:'Soul.md translated to Dutch',done:true},
+    ]
+  },
+  {
+    title:'Music Release Pipeline',domain:'personal · DistroKid',accent:'#f5a623',status:'4 tracks ready',badge:'pending',
+    items:[
+      {t:'Lekker Weer Toch? — Dutch satirical folk/pop',done:true},
+      {t:'Pausmobiel 808 — dark hip-hop',done:true},
+      {t:'Rik tribute (Karwei era) — working title pending',done:true},
+      {t:'Frequentie — grandfather tribute, signal/frequency metaphor (release last, quiet)',done:true},
+      {t:'DistroKid setup + Phase 1 unblock decisions (6 sequential, ask 1 at a time)',done:false},
+      {t:'AI audio cleanup: Adobe Podcast Enhance, iZotope RX, LALAL.AI for stem polish',done:false},
+    ]
+  },
+  {
+    title:'Italy Road Trip Jun 17–29',domain:'personal · Cheyenne + friend',accent:'#43e97b',status:'accommodation open',badge:'urgent',
+    items:[
+      {t:'Budget ~€13,000, Trieste/Sistiana/Duino as top recommendation',done:true},
+      {t:'Property with 3 separate bedrooms preferred',done:true},
+      {t:'Accommodation NOT yet booked — urgency high',done:false,warn:true},
+      {t:'Jun 17–29, 2026 — 12 nights',done:true},
+    ]
+  },
+  {
+    title:'CCP Google Ads — Open Issues',domain:'connectcarparts.nl',accent:'#ff5c57',status:'critical item open',badge:'critical',
+    items:[
+      {t:'Consent Mode v2: 0% granted — Niek must fix (70–75% data loss)',done:false,block:true},
+      {t:'Language targeting: English still active — drop',done:false,warn:true},
+      {t:'Target ROAS: currently 150%, realistic NL target 400–600%',done:false,warn:true},
+      {t:'Asset strength: Poor → Good (Merchant Center diagnostics)',done:false},
+      {t:'Atvise terminated April 2026, Thinkyellow onboarded',done:true},
+      {t:'9 negative keyword lists rebuilt',done:true},
+    ]
+  },
+  {
+    title:'Autofiction Memoir',domain:'personal · creative',accent:'#4facfe',status:'stalled',badge:'at risk',
+    items:[
+      {t:'Two chapters written: family history, grandfathers, presence-as-love',done:true},
+      {t:'Strongest genre fit: Dutch autofiction',done:true},
+      {t:'Momentum at risk — same emotional terrain as music project',done:false,warn:true},
+    ]
+  },
+];
+
+// ── ROUTING ────────────────────────────────────────────────────
+const ROUTING = [
+  {icon:'⚡',bg:'rgba(155,109,255,.1)',border:'rgba(155,109,255,.2)',trigger:'Technical gap (P1)',action:'Create Linear issue',tag:'label: seo-auto-fix',tc:'#9b6dff',tb:'rgba(155,109,255,.25)'},
+  {icon:'📋',bg:'rgba(245,166,35,.1)',border:'rgba(245,166,35,.2)',trigger:'Strategic / content gap',action:'Create Monday.com task',tag:'owner: Hans',tc:'#f5a623',tb:'rgba(245,166,35,.25)'},
+  {icon:'↔',bg:'rgba(79,172,254,.08)',border:'rgba(79,172,254,.2)',trigger:'Linear/Monday duplicate or drift',action:'Codex resolver links one item and syncs mirrors',tag:'hourly weekdays',tc:'#4facfe',tb:'rgba(79,172,254,.2)'},
+  {icon:'🔄',bg:'rgba(168,224,99,.08)',border:'rgba(168,224,99,.2)',trigger:'Cowork dispatch label on Linear',action:'n8n → Claude Code headless on VPS 1',tag:'cowork-dispatch',tc:'#a8e063',tb:'rgba(168,224,99,.2)'},
+  {icon:'⚠️',bg:'rgba(255,255,255,.04)',border:'rgba(255,255,255,.1)',trigger:'Brand entity ambiguous',action:'Flag in data quality notes only',tag:'no action',tc:'rgba(255,255,255,.3)',tb:'rgba(255,255,255,.1)'},
+  {icon:'🚫',bg:'rgba(255,92,87,.06)',border:'rgba(255,92,87,.2)',trigger:'False positive (ABS generic, CCP unrelated)',action:'Excluded, logged, not counted',tag:'discard',tc:'#ff5c57',tb:'rgba(255,92,87,.2)'},
+  {icon:'○',bg:'rgba(255,255,255,.04)',border:'rgba(255,255,255,.1)',trigger:'No Brand Radar data for brand',action:'Report "not found" — never assume',tag:'zero or not found',tc:'rgba(255,255,255,.3)',tb:'rgba(255,255,255,.1)'},
+  {icon:'🗄',bg:'rgba(0,229,200,.06)',border:'rgba(0,229,200,.2)',trigger:'All raw + normalized data',action:'Insert to Supabase weekly table',tag:'pesfakewujjwkyybwaom',tc:'#00e5c8',tb:'rgba(0,229,200,.2)'},
+  {icon:'🔴',bg:'rgba(255,92,87,.08)',border:'rgba(255,92,87,.25)',trigger:'Scope guard RED (home page, auth, schema)',action:'Cowork dispatch refuses — comment Linear',tag:'refuse + log',tc:'#ff5c57',tb:'rgba(255,92,87,.25)'},
+  {icon:'🟡',bg:'rgba(245,166,35,.08)',border:'rgba(245,166,35,.2)',trigger:'Scope guard ORANGE (routing, new pages)',action:'Escalate to Hans before execution',tag:'HITL required',tc:'#f5a623',tb:'rgba(245,166,35,.2)'},
+  {icon:'📧',bg:'rgba(255,255,255,.04)',border:'rgba(255,255,255,.1)',trigger:'Gmail access',action:'READ ONLY — NEVER touch Sent / Verzonden',tag:'hard rule',tc:'rgba(255,255,255,.3)',tb:'rgba(255,255,255,.1)'},
+  {icon:'🤖',bg:'rgba(168,224,99,.06)',border:'rgba(168,224,99,.15)',trigger:'P1 SEO fix confirmed',action:'Claude Code auto-PR → Opus review → merge',tag:'auto-merge after review',tc:'#a8e063',tb:'rgba(168,224,99,.2)'},
+  {icon:'🔔',bg:'rgba(248,87,166,.06)',border:'rgba(248,87,166,.2)',trigger:'Samantha / VPS 2 downtime detected',action:'Immediate Slack alert → #seo',tag:'priority: critical',tc:'#f857a6',tb:'rgba(248,87,166,.2)'},
+];
+
+// ── BRANDS ─────────────────────────────────────────────────────
+const BRANDS = [
+  {name:'ConnectCarParts',domain:'connectcarparts.nl',color:'#00e5c8',tags:['CCP','bol.com','Amazon.de','Channable','eBay DE']},
+  {name:'A.B.S. All Brake Systems',domain:'absbrakes.com',color:'#9b6dff',tags:['ABS brand context only','26,843 SKUs','trademark on-hold','GPSR op.326207']},
+  {name:'MarketplaceGrowth.nl',domain:'marketplacegrowth.nl',color:'#f5a623',tags:['SaaS','Vercel','Supabase','36/40 shipped']},
+  {name:'hansvanleeuwen.com',domain:'hansvanleeuwen.com',color:'#4facfe',tags:['personal brand','blog','entity SEO','portal system']},
+  {name:'OpenClaw / Samantha',domain:'openclaw.ai',color:'#ff5c57',tags:['VPS 2','Telegram','Home Assistant','93 entities']},
+];
+
+// ── INFRASTRUCTURE ─────────────────────────────────────────────
+const INFRA = [
+  {name:'VPS 1 (srv1402218)',host:'187.124.1.75 · Tailscale 100.x.x.x · KVM 2 · 8GB RAM',tags:['n8n','Supabase','Qdrant','AnythingLLM','Ollama','~20 containers'],alert:'No backup strategy — flagged as material risk'},
+  {name:'VPS 2 (srv1411336)',host:'187.124.2.66 · Tailscale 100.81.168.2 · KVM 4 · 16GB RAM',tags:['OpenClaw','Samantha','Ollama','port 18789'],alert:null},
+  {name:'Supabase (primary)',host:'pesfakewujjwkyybwaom · eu-central-1',tags:['seo_audit_findings','brand_radar_weekly','ccp_vin_research','samantha_memory','hans_weekly_health'],alert:'oejeojzaakfhculcoqdh = Lovable-managed — NO direct access'},
+  {name:'n8n (Hostinger)',host:'n8n.srv1402218.hstgr.cloud',tags:['SEO orchestrator','Brand Radar','cowork-dispatch','CR2 pipeline','Claude Relay v2'],alert:null},
+  {name:'Vercel',host:'MG.nl: prj_jpiL4aZ58kd1tCwGJ9kbZSWSb9lW',tags:['marketplacegrowth.nl','hansvanleeuwen.com','hans.support','git: hansvl3@gmail.com'],alert:null},
+  {name:'Home Assistant',host:'Pi 5 · Tailscale 100.86.198.76',tags:['93 entities','MCP Server integration','Samantha control plane'],alert:null},
+  {name:'Cloudflare (CCP)',host:'Account: 9f82449ee949386e01643d86b0e35966',tags:['connectcarparts.nl','CDN','traffic anomaly monitor'],alert:null},
+  {name:'Linear',host:'MCP connected · seo-auto-fix label',tags:['P1 technical fixes','cowork-dispatch routing','SEO orchestrator output'],alert:null},
+  {name:'Monday.com',host:'MCP connected · Marketing/SEO board',tags:['strategic tasks','content gaps','owner: Hans','visible to Luca'],alert:null},
+];
+
+// ── CHANGELOG ──────────────────────────────────────────────────
+const CHANGELOG = [
+  {date:'May 2026',title:'Cross-System Issue Resolver activated',desc:'Codex hourly weekday schedule added to reconcile Linear and Monday.com, link duplicate work, process one item per run, and log resolver state to Supabase.',tags:[{l:'codex',c:'#4facfe'},{l:'active',c:'#43e97b'}]},
+  {date:'May 2026',title:'Portal Design System initiated',desc:'Master prompt for unified hansvanleeuwen.com backend: Editorial Utility aesthetic, 8 shared components, amber accent + DM Mono + Fraunces. Delivered for Claude Design generation.',tags:[{l:'hansvanleeuwen',c:'#4facfe'},{l:'in progress',c:'#f5a623'}]},
+  {date:'May 2026',title:'CCP VIN Research Agent live',desc:'Supabase ccp_vin_research table + 2 Edge Functions (log + Excel export). Claude in Chrome agent with mandatory certainty % + motivation. 11 historical cases documented.',tags:[{l:'CCP',c:'#00e5c8'},{l:'live',c:'#43e97b'}]},
+  {date:'May 2026',title:'CR2 Batch Processing Pipeline',desc:'Full Python tool (rawpy, Pillow, OpenCV, NumPy) + n8n Form Trigger workflow. Upload reference PNG + CR2 ZIP → process on VPS 1 → email results. /marcel page on hansvanleeuwen.com.',tags:[{l:'personal',c:'#f857a6'},{l:'deployed',c:'#43e97b'}]},
+  {date:'May 2026',title:'Cowork → Claude Code Dispatch scaffolded',desc:'cowork-dispatch-to-claude-code n8n workflow + systemd service built. Linear webhook trigger, scope guards (GREEN/ORANGE/RED), auto-PR pattern. Awaiting activation after guard rails confirmed.',tags:[{l:'infra',c:'#a8e063'},{l:'build',c:'#f5a623'}]},
+  {date:'May 2026',title:'Channable eBay DE — 26-group filter rule',desc:'Single "is equal to any" rule replacing 26 chained ORs. Feed-scope locked to German-translated product groups. Listing rules + DE shipping profile still pending.',tags:[{l:'CCP',c:'#00e5c8'},{l:'in progress',c:'#f5a623'}]},
+  {date:'Apr 2026',title:'Google Ads agency transition completed',desc:'Atvise terminated (67% fee-to-spend, self-blocking keywords, ROAS 1.08). Thinkyellow onboarded. 9 negative KW lists rebuilt, 5 campaigns paused, budgets reallocated. Consent Mode v2 still at 0% — critical.',tags:[{l:'CCP',c:'#00e5c8'},{l:'critical open',c:'#ff5c57'}]},
+  {date:'Apr 2026',title:'SEO Orchestrator 4-stage scaffold',desc:'Parser/router → Linear/Monday creation → Claude Code watcher → Opus reviewer → Telegram digest. Smoke test on canonical P1 fix confirmed. Headless invoke pattern: claude -p via n8n.',tags:[{l:'SEO',c:'#9b6dff'},{l:'scaffolded',c:'#f5a623'}]},
+  {date:'Apr 2026',title:'HansAI deployed on VPS 1',desc:'SEA campaign manager with 5 industry templates. BJ Fogg Behavior Model. PMax, Shopping, Search, Demand Gen generation in <2 min. n8n integration live.',tags:[{l:'hansvanleeuwen',c:'#4facfe'},{l:'live',c:'#43e97b'}]},
+  {date:'Mar 2026',title:'hans.support portal live',desc:'React/Vercel NVC/Gottman relationship portal for Cheyenne. DNS: A→76.76.21.21, CNAME→cname.vercel-dns.com. Repo: jowikroon/hans-support.',tags:[{l:'personal',c:'#f857a6'},{l:'live',c:'#43e97b'}]},
+  {date:'Mar 2026',title:'hansvanleeuwen.com Phase 1 fixes',desc:'7 blog drafts published, RLS migration applied, footer {{CURRENT_YEAR}} bug fixed, GOD-STRUCTURE corrected (Vercel not Cloudflare Pages), 9 infra services populated.',tags:[{l:'hansvanleeuwen',c:'#4facfe'},{l:'done',c:'#43e97b'}]},
+  {date:'Mar 2026',title:'Cowork project config established',desc:'6 schedules, connector priority order, Dutch report format, HITL rules, Supabase project boundary enforced. Reference: chat/296c6de7.',tags:[{l:'cowork',c:'#00e5c8'},{l:'done',c:'#43e97b'}]},
+];
+
+// ── MASTER PROMPT ───────────────────────────────────────────────
+const MASTER_PROMPT = `# MASTER COWORK SCHEDULE TEMPLATE v2
+# Hans van Leeuwen — May 2026
+# Replace {{SCHEDULE_*}} variables per workflow.
+
+You are {{SCHEDULE_NAME}} for Hans van Leeuwen.
+Run: {{SCHEDULE_CADENCE}} Europe/Amsterdam.
+
+## SCOPE
+{{SCHEDULE_BRAND_GROUPS}}
+
+## DATA SOURCES (use in this order)
+1. Ahrefs MCP — Brand Radar, Site Audit, Site Explorer, GSC
+2. Supabase MCP (project: pesfakewujjwkyybwaom ONLY — never oejeojzaakfhculcoqdh)
+3. Vercel MCP (prj_jpiL4aZ58kd1tCwGJ9kbZSWSb9lW)
+4. Hostinger n8n MCP (https://n8n.srv1402218.hstgr.cloud)
+5. Linear MCP — open issues, sprint state
+6. Monday.com MCP — task board, owner: Hans
+7. Slack MCP — deliver to #seo, read prior week for continuity
+8. Gmail MCP — READ ONLY, NEVER touch Sent / Verzonden (hard rule)
+9. web_search + web_fetch — marketplace news, competitor moves
+10. Cloudflare MCP — connectcarparts.nl traffic anomalies
+
+## STEPS
+{{SCHEDULE_STEPS}}
+
+## UNIVERSAL ACTION ROUTING (never deviate)
+Technical P1 fix           → Linear issue · label: seo-auto-fix · priority: urgent
+Strategic / content gap    → Monday.com task · board: {{SCHEDULE_MONDAY_BOARD}} · owner: Hans
+Cowork dispatch label      → n8n trigger → Claude Code headless on VPS 1 (tmux: claude)
+Ambiguous entity match     → Flag in data quality notes — no action
+False positive (ABS, CCP)  → Exclude, log reason — do not count or route
+No data for brand          → Report "not found" or zero — never assume
+All raw + normalized data  → Supabase · project: pesfakewujjwkyybwaom · table: {{SCHEDULE_TABLE}}
+
+## SCOPE GUARDS (for Cowork → Claude Code dispatch)
+GREEN  → auto-proceed (blog posts, SEO fixes, component additions, copy)
+ORANGE → escalate to Hans (routing changes, new pages, schema migrations) — HITL required
+RED    → refuse outright (home page /, auth flows, payment, core DB schema)
+
+## OUTPUT CHANNELS
+Slack: #seo (always)
+Linear: seo-auto-fix label (technical P1 only)
+Monday.com: {{SCHEDULE_MONDAY_BOARD}}
+Supabase: {{SCHEDULE_TABLE}} (project: pesfakewujjwkyybwaom)
+Email: {{SCHEDULE_EMAIL_TARGET}} (if applicable)
+Telegram: OpenClaw bot on Samantha downtime or cowork dispatch result
+
+## INFRASTRUCTURE
+n8n:         https://n8n.srv1402218.hstgr.cloud
+VPS 1:       srv1402218.hstgr.cloud / 187.124.1.75 (SEO, n8n, ~20 containers)
+VPS 2:       srv1411336.hstgr.cloud / 100.81.168.2 (Samantha, port 18789)
+Claude Code: claude -p "<prompt>" --output-format stream-json
+Secrets:     /root/.claude.json or /etc/seo-orchestrator/.env — NEVER hardcode
+Tailscale:   all internal ports locked to 100.x.x.x (only GitHub webhook public)
+Git author:  hansvl3@gmail.com (required for Vercel deploys)
+GitHub PAT:  jowikroon — stored in ~/.git-credentials (never echo to stdout)
+
+## BRAND FALSE POSITIVE RULES
+ABS     = anti-lock braking system → EXCLUDE from A.B.S. brand counts
+CCP     = unrelated organization   → EXCLUDE from ConnectCarParts counts
+Hans van Leeuwen = common Dutch name without domain context → EXCLUDE
+Marketplace Growth = generic phrase without domain/brand reference → EXCLUDE
+
+## CCP CATALOG (only 3 categories — never claim others)
+Remmen / Brake Systems:  26,843 SKUs
+Stuurdelen / Steering:    8,686 SKUs
+Wiellagersets / Bearings: 4,142 SKUs
+NOT sold: filters, oils, wipers, lights, shocks, tires, batteries, body parts
+
+## REPORT FORMAT (Dutch, always)
+1. TL;DR — 3 bullets max 1 zin elk
+2. Wat er veranderd is — diffs only
+3. Cijfers — concrete KPIs met % verandering MoM/WoW
+4. Patronen en hypotheses — cross-source synthese
+5. Aanbevolen acties — max 5, geprioriteerd
+6. Open vragen — ambiguities you flagged but continued past
+7. Data quality notes — missing data, false positives removed, unverified items`;
+
+// ═══════════════════════════════════════════════════════════════ RENDER
+
+function hexToRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `${r},${g},${b}`}
+
+const OTAG_COLORS = {
+  'Slack #seo':'#00e5c8','Linear P1':'#9b6dff','Linear seo-auto-fix':'#9b6dff',
+  'Monday.com':'#f5a623','Supabase':'#4facfe','Email digest':'#ff5c57',
+  'Wekelijkse email':'#ff5c57','Telegram alert':'#f857a6','GitHub PR':'#a8e063',
+  'Linear comment':'#9b6dff','Excel export':'#43e97b','Chrome summary':'#43e97b',
+  'VPS 1 output folder':'rgba(255,255,255,.3)','Supabase ccp_vin_research':'#4facfe',
+  'Supabase log':'#4facfe',
+};
+const STAG_CFG = {
+  linear:{bg:'rgba(155,109,255,.12)',bc:'rgba(155,109,255,.3)',c:'#9b6dff'},
+  monday:{bg:'rgba(245,166,35,.12)',bc:'rgba(245,166,35,.3)',c:'#f5a623'},
+  slack:{bg:'rgba(0,229,200,.1)',bc:'rgba(0,229,200,.25)',c:'#00e5c8'},
+  supabase:{bg:'rgba(79,172,254,.1)',bc:'rgba(79,172,254,.25)',c:'#4facfe'},
+};
+
+function renderStats(){
+  const el=document.getElementById('stats-row');
+  el.innerHTML=STATS.map(s=>`<div class="stat"><div class="stat-dot" style="background:${s.dot}"></div><span class="stat-lbl">${s.lbl}</span><span class="stat-val">${s.val}</span></div>`).join('');
+}
+
+function buildNav(){
+  const nav=document.getElementById('main-nav');
+  nav.innerHTML=TABS.map((t,i)=>`<button class="nav-tab${i===0?' active':''}" onclick="switchTab(${i})">${t}</button>`).join('');
+}
+
+function buildSections(){
+  const con=document.getElementById('sections-container');
+  const sections = [
+    buildSchedulesSection,buildProjectsSection,buildRoutingSection,
+    buildBrandsSection,buildInfraSection,buildMasterPromptSection,buildChangelogSection
+  ];
+  sections.forEach((fn,i)=>{
+    const div=document.createElement('div');
+    div.className=`section${i===0?' active':''}`;
+    div.id=`sec-${i}`;
+    div.innerHTML=fn();
+    con.appendChild(div);
+  });
+}
+
+function switchTab(i){
+  document.querySelectorAll('.nav-tab').forEach((t,j)=>t.classList.toggle('active',j===i));
+  document.querySelectorAll('.section').forEach((s,j)=>s.classList.toggle('active',j===i));
+}
+
+function buildSchedulesSection(){
+  const cards=SCHEDULES.map((s,si)=>{
+    const steps=s.steps.map(st=>{
+      const tags=st.tags?st.tags.map(t=>{const c=STAG_CFG[t]||{};return `<span class="stag" style="background:${c.bg||'rgba(255,255,255,.05)'};border-color:${c.bc||'rgba(255,255,255,.1)'};color:${c.c||'var(--t3)'}">→ ${t}</span>`}).join(''):'';
+      return `<div class="step"><div class="step-n">${st.n}</div><div class="step-body"><div class="step-name">${st.name}</div><div class="step-desc">${st.desc}</div>${tags?`<div class="step-tags">${tags}</div>`:''}</div></div>`;
+    }).join('');
+    const outputs=s.outputs.map(o=>`<div class="ochip"><div class="odot" style="background:${OTAG_COLORS[o]||'rgba(255,255,255,.3)'}"></div>${o}</div>`).join('');
+    const scope=s.scope.map(sc=>`<span class="scope-tag">${sc}</span>`).join('');
+    const sid=`sched-prompt-${si}`;
+    return `<div class="card" style="box-shadow:0 16px 40px rgba(0,0,0,.5),0 0 60px rgba(${s.ar},.06)">
+      <div class="card-accent-bar" style="background:linear-gradient(90deg,${s.accent},transparent)"></div>
+      <div class="sched-hdr">
+        <div class="sched-icon" style="background:rgba(${s.ar},.1)">${s.icon}</div>
+        <div class="sched-meta"><div class="sched-title">${s.title}</div><div class="sched-time">${s.time}</div></div>
+        <div class="status-row"><div class="sdot s-${s.status}"></div><span class="s-lbl">${s.status}</span></div>
+      </div>
+      <div class="sched-scope">${scope}</div>
+      <div class="flow">${steps}</div>
+      <div class="outputs">${outputs}</div>
+      <div class="prompt-blk">
+        <div class="prompt-hdr"><span class="prompt-lbl">Schedule prompt</span><button class="copy-btn" onclick="copyText('${sid}')">Copy</button></div>
+        <div class="prompt-txt" id="${sid}">${s.prompt}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="sec-lbl">Active schedules (${SCHEDULES.length})</div><div class="grid-2">${cards}</div>`;
+}
+
+function buildProjectsSection(){
+  const STATUS_COLORS={'in progress':'#f5a623','scaffolding':'#9b6dff','36/40 shipped':'#43e97b','blocked':'#ff5c57','outreach sent':'#4facfe','deployed':'#43e97b','active':'#43e97b','4 tracks ready':'#f857a6','accommodation open':'#ff5c57','critical item open':'#ff5c57','stalled':'rgba(255,255,255,.3)'};
+  const cards=PROJECTS.map(p=>{
+    const items=p.items.map(it=>`<li class="${it.done?'done':it.block?'block':it.warn?'warn':''}">${it.t}</li>`).join('');
+    const badgeColor=STATUS_COLORS[p.status]||'rgba(255,255,255,.3)';
+    return `<div class="card" style="border-color:rgba(${hexToRgb(p.accent)},.18)">
+      <div class="card-accent-bar" style="background:linear-gradient(90deg,${p.accent},transparent)"></div>
+      <div class="proj-card">
+        <div class="proj-status-row">
+          <div class="proj-title" style="color:${p.accent}">${p.title}</div>
+          <span class="proj-badge" style="background:rgba(${hexToRgb(badgeColor)},.1);color:${badgeColor};border:1px solid rgba(${hexToRgb(badgeColor)},.25)">${p.badge}</span>
+        </div>
+        <div class="proj-domain">${p.domain}</div>
+        <ul class="proj-items">${items}</ul>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="sec-lbl">Active projects (${PROJECTS.length})</div><div class="grid-2">${cards}</div>`;
+}
+
+function buildRoutingSection(){
+  const cards=ROUTING.map(r=>`<div class="rcard" style="border-color:${r.border}">
+    <div class="ricon" style="background:${r.bg}">${r.icon}</div>
+    <div><div class="rtrigger">${r.trigger}</div><div class="raction">${r.action}</div>
+    <span class="rtag" style="color:${r.tc};border-color:${r.tb};background:rgba(0,0,0,.2)">${r.tag}</span></div>
+  </div>`).join('');
+  return `<div class="sec-lbl">Action routing rules (${ROUTING.length})</div><div class="route-grid">${cards}</div>`;
+}
+
+function buildBrandsSection(){
+  const cards=BRANDS.map(b=>`<div class="brand-card" style="border-color:rgba(${hexToRgb(b.color)},.2)">
+    <div class="brand-name" style="color:${b.color}">${b.name}</div>
+    <div class="brand-domain">${b.domain}</div>
+    <div class="brand-tags">${b.tags.map(t=>`<span class="btag">${t}</span>`).join('')}</div>
+  </div>`).join('');
+  return `<div class="sec-lbl">Brand / domain groups (${BRANDS.length})</div><div class="grid-4">${cards}</div>`;
+}
+
+function buildInfraSection(){
+  const cards=INFRA.map(s=>`<div class="card">
+    <div class="infra-item">
+      <div class="infra-name">${s.name}</div>
+      <div class="infra-host">${s.host}</div>
+      <div class="infra-tags">${s.tags.map(t=>`<span class="itag">${t}</span>`).join('')}</div>
+      ${s.alert?`<div class="infra-alert">${s.alert}</div>`:''}
+    </div>
+  </div>`).join('');
+  return `<div class="sec-lbl">Infrastructure (${INFRA.length} services)</div><div class="grid-3">${cards}</div>`;
+}
+
+function buildMasterPromptSection(){
+  return `<div class="mp-card">
+    <div class="mp-title">Universal Schedule Instruction Template v2</div>
+    <div class="mp-sub">Base system prompt for any Cowork schedule. Replace <code style="color:var(--teal);font-size:12px">{{SCHEDULE_*}}</code> variables. Includes all routing rules, infrastructure refs, brand false-positive rules, and CCP catalog scope.</div>
+    <div class="mp-body" id="master-prompt-body">${MASTER_PROMPT}</div>
+    <button class="copy-mp" onclick="copyMaster()">Copy master prompt</button>
+  </div>`;
+}
+
+function buildChangelogSection(){
+  const items=CHANGELOG.map(c=>`<div class="cl-item">
+    <div class="cl-date">${c.date}</div>
+    <div class="cl-body">
+      <div class="cl-title">${c.title}</div>
+      <div class="cl-desc">${c.desc}</div>
+      <div class="cl-tags">${c.tags.map(t=>`<span class="cltag" style="color:${t.c};border-color:rgba(${hexToRgb(t.c)},.25);background:rgba(${hexToRgb(t.c)},.08)">${t.l}</span>`).join('')}</div>
+    </div>
+  </div>`).join('');
+  return `<div class="sec-lbl">Changelog — recent developments</div><div class="changelog">${items}</div>`;
+}
+
+function copyText(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  navigator.clipboard.writeText(el.textContent).then(()=>{
+    const btn=el.previousElementSibling?.querySelector('.copy-btn');
+    if(btn){btn.textContent='✓ Copied';btn.style.color='var(--teal)';setTimeout(()=>{btn.textContent='Copy';btn.style.color=''},1800)}
+  });
+}
+function copyMaster(){
+  navigator.clipboard.writeText(MASTER_PROMPT).then(()=>{
+    const btn=document.querySelector('.copy-mp');
+    btn.textContent='✓ Copied to clipboard';
+    setTimeout(()=>{btn.textContent='Copy master prompt'},2000);
+  });
+}
+
+// 3D tilt on cards
+function initTilt(){
+  document.querySelectorAll('.card').forEach(card=>{
+    card.addEventListener('mousemove',e=>{
+      const rect=card.getBoundingClientRect();
+      const x=(e.clientX-rect.left)/rect.width-.5;
+      const y=(e.clientY-rect.top)/rect.height-.5;
+      card.style.transform=`perspective(1000px) rotateX(${-y*3.5}deg) rotateY(${x*4}deg) translateY(-3px)`;
+    });
+    card.addEventListener('mouseleave',()=>{card.style.transform='perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0)'});
+  });
+}
+
+renderStats();
+buildNav();
+buildSections();
+setTimeout(initTilt,200);
+</script>
+</body>
+</html>
