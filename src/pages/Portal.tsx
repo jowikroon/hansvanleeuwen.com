@@ -10,6 +10,7 @@ import {
   Plus, Trash2, X, Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import RepoCards from "@/components/portal/RepoCards";
 
 interface ToolCard {
   id: string;
@@ -291,6 +292,8 @@ const Portal = () => {
             })}
           </div>
         </div>
+
+        <RepoCards />
 
         {/* Agents */}
         <div className="mb-10">
